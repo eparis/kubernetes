@@ -1,0 +1,5 @@
+coreos.com			"CoreOS"
+
+guyifan1121@gmail.com		"CoreOS"
+kelsey.hightower@gmail.com	"CoreOS"
+xiangli.cs@gmail.com		"CoreOS"
