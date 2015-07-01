@@ -35,7 +35,6 @@ kubernetes-cert:
     - unless: test -f /srv/kubernetes/server.cert
     - source: salt://generate-cert/{{certgen}}
 {% if cert_ip is defined %}
-    - args: {{cert_ip}}
     - require:
       - pkg: curl
 {% endif %}
@@ -43,3 +42,10 @@ kubernetes-cert:
     - user: root
     - group: root
     - shell: /bin/bash
+    - env:
+      - MASTER_IP: '{{cert_ip}}'
+      - DNS_DOMAIN: pillar['dns_domain']
+      - SERVICE_CLUSTER_IP_RANGE: pillar['service_cluster_ip_range']
+      - MASTER_NAME: 'kubernetes'
+      - CERT_DIR: '/srv/kubernetes/'
+      - CERT_GROUP: 'kube-cert'
