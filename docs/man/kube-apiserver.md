@@ -75,7 +75,7 @@ The the kube-apiserver several options.
 
 # EXAMPLES
 ```
-/usr/bin/kube-apiserver --logtostderr=true --v=0 --etcd_servers=http://127.0.0.1:4001 --insecure_bind_address=127.0.0.1 --insecure_port=8080 --kubelet_port=10250 --service-cluster-ip-range=10.1.1.0/24 --allow_privileged=false
+/usr/bin/kube-apiserver --logtostderr=true --v=0 --etcd-servers=http://127.0.0.1:4001 --insecure-bind-address=127.0.0.1 --insecure-port=8080 --kubelet-port=10250 --service-cluster-ip-range=10.1.1.0/24 --allow-privileged=false
 ```
 
 

@@ -102,7 +102,7 @@ Yes.
 For Kubernetes 1.0, we strongly recommend running the following set of admission control plug-ins (order matters):
 
 ```shell
---admission_control=NamespaceLifecycle,NamespaceExists,LimitRanger,SecurityContextDeny,ServiceAccount,ResourceQuota
+--admission-control=NamespaceLifecycle,NamespaceExists,LimitRanger,SecurityContextDeny,ServiceAccount,ResourceQuota
 ```
 
 

@@ -24,7 +24,7 @@ HTTP server: The kubelet can also listen for HTTP and respond to a simple API (u
 *       **--api-servers=[]**: List of Kubernetes API servers for publishing events, and reading pods and services. (ip:port), comma separated.
 *       **--boot-id-file=/proc/sys/kernel/random/boot_id**: Comma-separated list of files to check for boot-id. Use the first one that exists.
 *       **--cadvisor-port=4194**: The port of the localhost cAdvisor endpoint
-*       **--cert-dir="/var/run/kubernetes"**: The directory where the TLS certs are located (by default /var/run/kubernetes). If --tls_cert_file and --tls_private_key_file are provided, this flag will be ignored.
+*       **--cert-dir="/var/run/kubernetes"**: The directory where the TLS certs are located (by default /var/run/kubernetes). If --tls-cert-file and --tls-private-key-file are provided, this flag will be ignored.
 *       **--cgroup-root=""**: Optional root cgroup to use for pods. This is handled by the container runtime on a best effort basis. Default: '', which means use the container runtime default.
 *       **--chaos-chance=0**: If > 0.0, introduce random client errors and latency. Intended for testing. [default=0.0]
 *       **--cloud-config=""**: The path to the cloud provider configuration file.  Empty string for no configuration file.
@@ -83,24 +83,24 @@ HTTP server: The kubelet can also listen for HTTP and respond to a simple API (u
 *       **--read-only-port=10255**: The read-only port for the Kubelet to serve on (set to 0 to disable)
 *       **--really-crash-for-testing=false**: If true, when panics occur crash. Intended for testing.
 *       **--register-node=true**: Register the node with the apiserver (defaults to true if --api-server is set)
-*       **--registry-burst=10**: Maximum size of a bursty pulls, temporarily allows pulls to burst to this number, while still not exceeding registry_qps.  Only used if --registry_qps > 0
+*       **--registry-burst=10**: Maximum size of a bursty pulls, temporarily allows pulls to burst to this number, while still not exceeding registry_qps.  Only used if --registry-qps > 0
 *       **--registry-qps=0**: If > 0, limit registry pull QPS to this value.  If 0, unlimited. [default=0.0]
 *       **--resource-container="/kubelet"**: Absolute name of the resource-only container to create and run the Kubelet in (Default: /kubelet).
 *       **--root-dir="/var/lib/kubelet"**: Directory path for managing kubelet files (volume mounts,etc).
-*       **--runonce=false**: If true, exit after spawning pods from local manifests or remote urls. Exclusive with --api_servers, and --enable-server
+*       **--runonce=false**: If true, exit after spawning pods from local manifests or remote urls. Exclusive with --api-servers, and --enable-server
 *       **--stderrthreshold=2**: logs at or above this threshold go to stderr
 *       **--streaming-connection-idle-timeout=0**: Maximum time a streaming connection can be idle before the connection is automatically closed.  Example: '5m'
 *       **--sync-frequency=10s**: Max period between synchronizing running containers and config
 *       **--system-container=""**: Optional resource-only container in which to place all non-kernel processes that are not already in a container. Empty for no container. Rolling back the flag requires a reboot. (Default: "").
-*       **--tls-cert-file=""**: File containing x509 Certificate for HTTPS.  (CA cert, if any, concatenated after server cert). If --tls_cert_file and --tls_private_key_file are not provided, a self-signed certificate and key are generated for the public address and saved to the directory passed to --cert_dir.
-*       **--tls-private-key-file=""**: File containing x509 private key matching --tls_cert_file.
+*       **--tls-cert-file=""**: File containing x509 Certificate for HTTPS.  (CA cert, if any, concatenated after server cert). If --tls-cert-file and --tls-private-key-file are not provided, a self-signed certificate and key are generated for the public address and saved to the directory passed to --cert-dir.
+*       **--tls-private-key-file=""**: File containing x509 private key matching --tls-cert-file.
 *       **--v=0**: log level for V logs
 *       **--version=false**: Print version information and quit
 *       **--vmodule=**: comma-separated list of pattern=N settings for file-filtered logging
 
 # EXAMPLES
 ```
-/usr/bin/kubelet --logtostderr=true --v=0 --api_servers=http://127.0.0.1:8080 --address=127.0.0.1 --port=10250 --hostname_override=127.0.0.1 --allow-privileged=false
+/usr/bin/kubelet --logtostderr=true --v=0 --api-servers=http://127.0.0.1:8080 --address=127.0.0.1 --port=10250 --hostname-override=127.0.0.1 --allow-privileged=false
 ```
 
 

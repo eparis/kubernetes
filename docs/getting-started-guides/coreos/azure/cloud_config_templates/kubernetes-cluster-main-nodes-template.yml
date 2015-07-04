@@ -275,7 +275,7 @@ coreos:
             --port=8080 \
             $ETCD_SERVERS \
             --service-cluster-ip-range=10.1.0.0/16 \
-            --cloud_provider=vagrant \
+            --cloud-provider=vagrant \
             --logtostderr=true --v=3
         Restart=always
         RestartSec=10
@@ -316,7 +316,7 @@ coreos:
         ConditionHost=kube-00
         [Service]
         ExecStart=/opt/kubernetes/server/bin/kube-controller-manager \
-            --cloud_provider=vagrant \
+            --cloud-provider=vagrant \
             --master=127.0.0.1:8080 \
             --logtostderr=true
         Restart=always
@@ -339,11 +339,11 @@ coreos:
         ExecStart=/opt/kubernetes/server/bin/kubelet \
             --address=0.0.0.0 \
             --port=10250 \
-            --hostname_override=%H \
-            --api_servers=http://kube-00:8080 \
+            --hostname-override=%H \
+            --api-servers=http://kube-00:8080 \
             --logtostderr=true \
-            --cluster_dns=10.1.0.3 \
-            --cluster_domain=kube.local \
+            --cluster-dns=10.1.0.3 \
+            --cluster-domain=kube.local \
             --config=/etc/kubernetes/manifests/
         Restart=always
         RestartSec=10

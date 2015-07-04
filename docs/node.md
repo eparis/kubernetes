@@ -106,7 +106,7 @@ and single node life-cycle management.
 
 Node controller has a sync loop that creates/deletes Nodes from Kubernetes
 based on all matching VM instances listed from cloud provider. The sync period
-can be controlled via flag `--node_sync_period`. If a new instance
+can be controlled via flag `--node-sync-period`. If a new instance
 gets created, Node Controller creates a representation for it. If an existing
 instance gets deleted, Node Controller deletes the representation. Note however,
 Node Controller is unable to provision the node for you, i.e. it won't install
@@ -123,7 +123,7 @@ register itself with the API server.  This is the preferred pattern, used by mos
 For self-registration, the kubelet is started with the following options:
   - `--apiservers=` tells the kubelet the location of the apiserver.
   - `--kubeconfig` tells kubelet where to find credentials to authenticate itself to the apiserver.
-  - `--cloud_provider=` tells the kubelet how to talk to a cloud provider to read metadata about itself.
+  - `--cloud-provider=` tells the kubelet how to talk to a cloud provider to read metadata about itself.
   - `--register-node` tells the kubelet to create its own node resource.
 
 Currently, any kubelet is authorized to create/modify any node resource, but in practice it only creates/modifies
