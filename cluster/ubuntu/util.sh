@@ -196,7 +196,7 @@ function create-kube-apiserver-opts(){
   cat <<EOF > ~/kube/default/kube-apiserver
 KUBE_APISERVER_OPTS="--address=0.0.0.0 \
 --port=8080 \
---etcd_servers=http://127.0.0.1:4001 \
+--etcd-servers=http://127.0.0.1:4001 \
 --logtostderr=true \
 --service-cluster-ip-range=${1}"
 EOF
@@ -222,11 +222,11 @@ function create-kubelet-opts(){
   cat <<EOF > ~/kube/default/kubelet
 KUBELET_OPTS="--address=0.0.0.0 \
 --port=10250 \
---hostname_override=$1 \
---api_servers=http://$2:8080 \
+--hostname-override=$1 \
+--api-servers=http://$2:8080 \
 --logtostderr=true \
---cluster_dns=$3 \
---cluster_domain=$4"
+--cluster-dns=$3 \
+--cluster-domain=$4"
 EOF
 
 }
