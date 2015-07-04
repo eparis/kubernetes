@@ -81,7 +81,7 @@ if [[ ${GINKGO_PARALLEL} =~ ^[yY]$ ]]; then
 fi
 
 
-# The --host setting is used only when providing --auth_config
+# The --host setting is used only when providing --auth-config
 # If --kubeconfig is used, the host to use is retrieved from the .kubeconfig
 # file and the one provided with --host is ignored.
 # Add path for things like running kubectl binary.
