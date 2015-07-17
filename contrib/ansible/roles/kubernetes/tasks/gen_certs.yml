@@ -7,8 +7,11 @@
 - name: Install openssl for easy-rsa stuff
   action: "{{ ansible_pkg_mgr }}"
   args:
-    name: openssl
+    name: "{{ item }}"
     state: latest
+  with_items:
+    - openssl
+    - curl
 
 - name: HACK | overwrite make-ca-cert.sh from local copy
   copy:
