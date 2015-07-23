@@ -213,7 +213,6 @@ function start_apiserver {
       --admission_control="${ADMISSION_CONTROL}" \
       --address="${API_HOST}" \
       --port="${API_PORT}" \
-      --runtime_config=api/v1beta3 \
       --etcd_servers="http://127.0.0.1:4001" \
       --service-cluster-ip-range="10.0.0.0/24" \
       --cors_allowed_origins="${API_CORS_ALLOWED_ORIGINS}" >"${APISERVER_LOG}" 2>&1 &
@@ -221,14 +220,13 @@ function start_apiserver {
 
     # Wait for kube-apiserver to come up before launching the rest of the components.
     echo "Waiting for apiserver to come up"
-    kube::util::wait_for_url "http://${API_HOST}:${API_PORT}/api/v1beta3/pods" "apiserver: " 1 10 || exit 1
+    kube::util::wait_for_url "http://${API_HOST}:${API_PORT}/api/v1/pods" "apiserver: " 1 10 || exit 1
 }
 
 function start_controller_manager {
     CTLRMGR_LOG=/tmp/kube-controller-manager.log
     sudo -E "${GO_OUT}/kube-controller-manager" \
       --v=${LOG_LEVEL} \
-      --machines="127.0.0.1" \
       --service_account_private_key_file="${SERVICE_ACCOUNT_KEY}" \
       --master="${API_HOST}:${API_PORT}" >"${CTLRMGR_LOG}" 2>&1 &
     CTLRMGR_PID=$!

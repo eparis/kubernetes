@@ -25,16 +25,54 @@ KUBE_ROOT=$(dirname "${BASH_SOURCE}")/..
 source "${KUBE_ROOT}/hack/lib/init.sh"
 source "${KUBE_ROOT}/hack/lib/test.sh"
 
+# Stops the running kubectl proxy, if there is one.
+function stop-proxy()
+{
+  [[ -n "${PROXY_PID-}" ]] && kill "${PROXY_PID}" 1>&2 2>/dev/null
+  PROXY_PID=
+}
+
+# Starts "kubect proxy" to test the client proxy. You may pass options, e.g.
+# --api-prefix.
+function start-proxy()
+{
+  stop-proxy
+
+  kube::log::status "Starting kubectl proxy"
+  # the --www and --www-prefix are just to make something definitely show up for
+  # wait_for_url to see.
+  kubectl proxy -p ${PROXY_PORT} --www=. --www-prefix=/healthz "$@" 1>&2 &
+  PROXY_PID=$!
+  kube::util::wait_for_url "http://127.0.0.1:${PROXY_PORT}/healthz" "kubectl proxy $@"
+}
+
 function cleanup()
 {
-    [[ -n ${APISERVER_PID-} ]] && kill ${APISERVER_PID} 1>&2 2>/dev/null
-    [[ -n ${CTLRMGR_PID-} ]] && kill ${CTLRMGR_PID} 1>&2 2>/dev/null
-    [[ -n ${KUBELET_PID-} ]] && kill ${KUBELET_PID} 1>&2 2>/dev/null
+  [[ -n "${APISERVER_PID-}" ]] && kill "${APISERVER_PID}" 1>&2 2>/dev/null
+  [[ -n "${CTLRMGR_PID-}" ]] && kill "${CTLRMGR_PID}" 1>&2 2>/dev/null
+  [[ -n "${KUBELET_PID-}" ]] && kill "${KUBELET_PID}" 1>&2 2>/dev/null
+  stop-proxy
 
-    kube::etcd::cleanup
-    rm -rf "${KUBE_TEMP}"
+  kube::etcd::cleanup
+  rm -rf "${KUBE_TEMP}"
 
-    kube::log::status "Clean up complete"
+  kube::log::status "Clean up complete"
+}
+
+# Executes curl against the proxy. $1 is the path to use, $2 is the desired
+# return code. Prints a helpful message on failure.
+function check-curl-proxy-code()
+{
+  local status
+  local -r address=$1
+  local -r desired=$2
+  local -r full_address="${PROXY_HOST}:${PROXY_PORT}${address}"
+  status=$(curl -w "%{http_code}" --silent --output /dev/null "${full_address}")
+  if [ "${status}" == "${desired}" ]; then
+    return 0
+  fi
+  echo "For address ${full_address}, got ${status} but wanted ${desired}"
+  return 1
 }
 
 trap cleanup EXIT SIGINT
@@ -49,6 +87,8 @@ API_HOST=${API_HOST:-127.0.0.1}
 KUBELET_PORT=${KUBELET_PORT:-10250}
 KUBELET_HEALTHZ_PORT=${KUBELET_HEALTHZ_PORT:-10248}
 CTLRMGR_PORT=${CTLRMGR_PORT:-10252}
+PROXY_PORT=${PROXY_PORT:-8001}
+PROXY_HOST=127.0.0.1 # kubectl only serves on localhost.
 
 # Check kubectl
 kube::log::status "Running kubectl with no options"
@@ -85,7 +125,7 @@ kube::util::wait_for_url "http://127.0.0.1:${KUBELET_HEALTHZ_PORT}/healthz" "kub
 
 # Start kube-apiserver
 kube::log::status "Starting kube-apiserver"
-"${KUBE_OUTPUT_HOSTBIN}/kube-apiserver" \
+KUBE_API_VERSIONS="v1,v1beta3" "${KUBE_OUTPUT_HOSTBIN}/kube-apiserver" \
   --address="127.0.0.1" \
   --public_address_override="127.0.0.1" \
   --port="${API_PORT}" \
@@ -94,6 +134,7 @@ kube::log::status "Starting kube-apiserver"
   --kubelet_port=${KUBELET_PORT} \
   --runtime_config=api/v1beta3 \
   --runtime_config=api/v1 \
+  --runtime_config=api/v1beta3 \
   --cert_dir="${TMPDIR:-/tmp/}" \
   --service-cluster-ip-range="10.0.0.0/24" 1>&2 &
 APISERVER_PID=$!
@@ -103,23 +144,19 @@ kube::util::wait_for_url "http://127.0.0.1:${API_PORT}/healthz" "apiserver"
 # Start controller manager
 kube::log::status "Starting controller-manager"
 "${KUBE_OUTPUT_HOSTBIN}/kube-controller-manager" \
-  --machines="127.0.0.1" \
   --port="${CTLRMGR_PORT}" \
   --master="127.0.0.1:${API_PORT}" 1>&2 &
 CTLRMGR_PID=$!
 
 kube::util::wait_for_url "http://127.0.0.1:${CTLRMGR_PORT}/healthz" "controller-manager"
-kube::util::wait_for_url "http://127.0.0.1:${API_PORT}/api/v1beta3/nodes/127.0.0.1" "apiserver(nodes)"
+kube::util::wait_for_url "http://127.0.0.1:${API_PORT}/api/v1/nodes/127.0.0.1" "apiserver(nodes)"
 
 # Expose kubectl directly for readability
 PATH="${KUBE_OUTPUT_HOSTBIN}":$PATH
 
-kube_api_versions=(
-  ""
-  v1beta3
-  v1
-)
-for version in "${kube_api_versions[@]}"; do
+runTests() {
+  version="$1"
+  echo "Testing api version: $1"
   if [[ -z "${version}" ]]; then
     kube_flags=(
       -s "http://127.0.0.1:${API_PORT}"
@@ -141,10 +178,43 @@ for version in "${kube_api_versions[@]}"; do
   rc_status_replicas_field=".status.replicas"
   rc_container_image_field=".spec.template.spec.containers"
   port_field="(index .spec.ports 0).port"
+  port_name="(index .spec.ports 0).name"
   image_field="(index .spec.containers 0).image"
 
   # Passing no arguments to create is an error
   ! kubectl create
+
+  #######################
+  # kubectl local proxy #
+  #######################
+
+  # Make sure the UI can be proxied
+  start-proxy --api-prefix=/
+  check-curl-proxy-code /ui 301
+  check-curl-proxy-code /metrics 200
+  if [[ -n "${version}" ]]; then
+    check-curl-proxy-code /api/${version}/namespaces 200
+  fi
+  stop-proxy
+
+  # Default proxy locks you into the /api path (legacy behavior)
+  start-proxy
+  check-curl-proxy-code /ui 404
+  check-curl-proxy-code /metrics 404
+  check-curl-proxy-code /api/ui 404
+  if [[ -n "${version}" ]]; then
+    check-curl-proxy-code /api/${version}/namespaces 200
+  fi
+  stop-proxy
+
+  # Custom paths let you see everything.
+  start-proxy --api-prefix=/custom
+  check-curl-proxy-code /custom/ui 301
+  check-curl-proxy-code /custom/metrics 200
+  if [[ -n "${version}" ]]; then
+    check-curl-proxy-code /custom/api/${version}/namespaces 200
+  fi
+  stop-proxy
 
   ###########################
   # POD creation / deletion #
@@ -156,7 +226,7 @@ for version in "${kube_api_versions[@]}"; do
   # Pre-condition: no POD is running
   kube::test::get_object_assert pods "{{range.items}}{{$id_field}}:{{end}}" ''
   # Command
-  kubectl create "${kube_flags[@]}" -f examples/limitrange/valid-pod.json
+  kubectl create "${kube_flags[@]}" -f docs/user-guide/limitrange/valid-pod.yaml
   # Post-condition: valid-pod POD is running
   kubectl get "${kube_flags[@]}" pods -o json
   kube::test::get_object_assert pods "{{range.items}}{{$id_field}}:{{end}}" 'valid-pod:'
@@ -189,7 +259,7 @@ for version in "${kube_api_versions[@]}"; do
   # Pre-condition: valid-pod POD is running
   kube::test::get_object_assert pods "{{range.items}}{{$id_field}}:{{end}}" 'valid-pod:'
   # Command
-  kubectl delete -f examples/limitrange/valid-pod.json "${kube_flags[@]}"
+  kubectl delete -f docs/user-guide/limitrange/valid-pod.yaml "${kube_flags[@]}"
   # Post-condition: no POD is running
   kube::test::get_object_assert pods "{{range.items}}{{$id_field}}:{{end}}" ''
 
@@ -197,7 +267,7 @@ for version in "${kube_api_versions[@]}"; do
   # Pre-condition: no POD is running
   kube::test::get_object_assert pods "{{range.items}}{{$id_field}}:{{end}}" ''
   # Command
-  kubectl create -f examples/limitrange/valid-pod.json "${kube_flags[@]}"
+  kubectl create -f docs/user-guide/limitrange/valid-pod.yaml "${kube_flags[@]}"
   # Post-condition: valid-pod POD is running
   kube::test::get_object_assert pods "{{range.items}}{{$id_field}}:{{end}}" 'valid-pod:'
 
@@ -213,7 +283,7 @@ for version in "${kube_api_versions[@]}"; do
   # Pre-condition: no POD is running
   kube::test::get_object_assert pods "{{range.items}}{{$id_field}}:{{end}}" ''
   # Command
-  kubectl create -f examples/limitrange/valid-pod.json "${kube_flags[@]}"
+  kubectl create -f docs/user-guide/limitrange/valid-pod.yaml "${kube_flags[@]}"
   # Post-condition: valid-pod POD is running
   kube::test::get_object_assert pods "{{range.items}}{{$id_field}}:{{end}}" 'valid-pod:'
 
@@ -245,7 +315,7 @@ for version in "${kube_api_versions[@]}"; do
   # Pre-condition: no POD is running
   kube::test::get_object_assert pods "{{range.items}}{{$id_field}}:{{end}}" ''
   # Command
-  kubectl create -f examples/limitrange/valid-pod.json "${kube_flags[@]}"
+  kubectl create -f docs/user-guide/limitrange/valid-pod.yaml "${kube_flags[@]}"
   kubectl create -f examples/redis/redis-proxy.yaml "${kube_flags[@]}"
   # Post-condition: valid-pod and redis-proxy PODs are running
   kube::test::get_object_assert pods "{{range.items}}{{$id_field}}:{{end}}" 'redis-proxy:valid-pod:'
@@ -262,7 +332,7 @@ for version in "${kube_api_versions[@]}"; do
   # Pre-condition: no POD is running
   kube::test::get_object_assert pods "{{range.items}}{{$id_field}}:{{end}}" ''
   # Command
-  kubectl create -f examples/limitrange/valid-pod.json "${kube_flags[@]}"
+  kubectl create -f docs/user-guide/limitrange/valid-pod.yaml "${kube_flags[@]}"
   kubectl create -f examples/redis/redis-proxy.yaml "${kube_flags[@]}"
   # Post-condition: valid-pod and redis-proxy PODs are running
   kube::test::get_object_assert pods "{{range.items}}{{$id_field}}:{{end}}" 'redis-proxy:valid-pod:'
@@ -279,7 +349,7 @@ for version in "${kube_api_versions[@]}"; do
   # Pre-condition: no POD is running
   kube::test::get_object_assert pods "{{range.items}}{{$id_field}}:{{end}}" ''
   # Command
-  kubectl create -f examples/limitrange/valid-pod.json "${kube_flags[@]}"
+  kubectl create -f docs/user-guide/limitrange/valid-pod.yaml "${kube_flags[@]}"
   # Post-condition: valid-pod POD is running
   kube::test::get_object_assert pods "{{range.items}}{{$id_field}}:{{end}}" 'valid-pod:'
 
@@ -303,17 +373,23 @@ for version in "${kube_api_versions[@]}"; do
   # Pre-condition: no POD is running
   kube::test::get_object_assert pods "{{range.items}}{{$id_field}}:{{end}}" ''
   # Command
-  kubectl create -f examples/limitrange/valid-pod.json "${kube_flags[@]}"
+  kubectl create -f docs/user-guide/limitrange/valid-pod.yaml "${kube_flags[@]}"
   # Post-condition: valid-pod POD is running
   kube::test::get_object_assert pods "{{range.items}}{{$id_field}}:{{end}}" 'valid-pod:'
 
-  ## --patch update pod can change image
-  # Pre-condition: valid-pod POD is running
-  kube::test::get_object_assert pods "{{range.items}}{{$id_field}}:{{end}}" 'valid-pod:'
+  ## Patch pod can change image
   # Command
-  kubectl update "${kube_flags[@]}" pod valid-pod --patch='{"spec":{"containers":[{"name": "kubernetes-serve-hostname", "image": "nginx"}]}}'
+  kubectl patch "${kube_flags[@]}" pod valid-pod -p='{"spec":{"containers":[{"name": "kubernetes-serve-hostname", "image": "nginx"}]}}'
   # Post-condition: valid-pod POD has image nginx
   kube::test::get_object_assert pods "{{range.items}}{{$image_field}}:{{end}}" 'nginx:'
+
+  ## --force replace pod can change other field, e.g., spec.container.name
+  # Command
+  kubectl get "${kube_flags[@]}" pod valid-pod -o json | sed 's/"kubernetes-serve-hostname"/"replaced-k8s-serve-hostname"/g' > tmp-valid-pod.json
+  kubectl replace "${kube_flags[@]}" --force -f tmp-valid-pod.json
+  # Post-condition: spec.container.name = "replaced-k8s-serve-hostname"
+  kube::test::get_object_assert 'pod valid-pod' "{{(index .spec.containers 0).name}}" 'replaced-k8s-serve-hostname'
+  rm tmp-valid-pod.json
 
   ### Overwriting an existing label is not permitted
   # Pre-condition: name is valid-pod
@@ -339,6 +415,21 @@ for version in "${kube_api_versions[@]}"; do
   # Post-condition: no POD is running
   kube::test::get_object_assert pods "{{range.items}}{{$id_field}}:{{end}}" ''
 
+  ### Create two PODs from 1 yaml file
+  # Pre-condition: no POD is running
+  kube::test::get_object_assert pods "{{range.items}}{{$id_field}}:{{end}}" ''
+  # Command
+  kubectl create -f docs/user-guide/multi-pod.yaml "${kube_flags[@]}"
+  # Post-condition: valid-pod and redis-proxy PODs are running
+  kube::test::get_object_assert pods "{{range.items}}{{$id_field}}:{{end}}" 'redis-master:redis-proxy:'
+
+  ### Delete two PODs from 1 yaml file
+  # Pre-condition: redis-master and redis-proxy PODs are running
+  kube::test::get_object_assert pods "{{range.items}}{{$id_field}}:{{end}}" 'redis-master:redis-proxy:'
+  # Command
+  kubectl delete -f docs/user-guide/multi-pod.yaml "${kube_flags[@]}"
+  # Post-condition: no PODs are running
+  kube::test::get_object_assert pods "{{range.items}}{{$id_field}}:{{end}}" ''
 
   ##############
   # Namespaces #
@@ -348,7 +439,7 @@ for version in "${kube_api_versions[@]}"; do
   # Pre-condition: no POD is running
   kube::test::get_object_assert 'pods --namespace=other' "{{range.items}}{{$id_field}}:{{end}}" ''
   # Command
-  kubectl create "${kube_flags[@]}" --namespace=other -f examples/limitrange/valid-pod.json
+  kubectl create "${kube_flags[@]}" --namespace=other -f docs/user-guide/limitrange/valid-pod.yaml
   # Post-condition: valid-pod POD is running
   kube::test::get_object_assert 'pods --namespace=other' "{{range.items}}{{$id_field}}:{{end}}" 'valid-pod:'
 
@@ -371,7 +462,7 @@ for version in "${kube_api_versions[@]}"; do
   # Pre-condition: no PODTEMPLATE
   kube::test::get_object_assert podtemplates "{{range.items}}{{.metadata.name}}:{{end}}" ''
   # Command
-  kubectl create -f examples/walkthrough/podtemplate.json "${kube_flags[@]}"
+  kubectl create -f docs/user-guide/walkthrough/podtemplate.json "${kube_flags[@]}"
   # Post-condition: nginx PODTEMPLATE is available
   kube::test::get_object_assert podtemplates "{{range.items}}{{.metadata.name}}:{{end}}" 'nginx:'
 
@@ -399,7 +490,7 @@ for version in "${kube_api_versions[@]}"; do
   # Pre-condition: Only the default kubernetes services are running
   kube::test::get_object_assert services "{{range.items}}{{$id_field}}:{{end}}" 'kubernetes:'
   # Command
-  kubectl create -f examples/guestbook/redis-master-service.json "${kube_flags[@]}"
+  kubectl create -f examples/guestbook/redis-master-service.yaml "${kube_flags[@]}"
   # Post-condition: redis-master service is running
   kube::test::get_object_assert services "{{range.items}}{{$id_field}}:{{end}}" 'kubernetes:redis-master:'
   # Describe command should print detailed information
@@ -431,7 +522,7 @@ for version in "${kube_api_versions[@]}"; do
   kubectl create -f - "${kube_flags[@]}" << __EOF__
 {
   "kind": "Service",
-  "apiVersion": "v1beta3",
+  "apiVersion": "v1",
   "metadata": {
     "name": "service-${version}-test"
   },
@@ -450,7 +541,7 @@ __EOF__
   kube::test::get_object_assert services "{{range.items}}{{$id_field}}:{{end}}" 'kubernetes:redis-master:service-.*-test:'
 
   ### Identity
-  kubectl get service "${kube_flags[@]}" service-${version}-test -o json | kubectl update "${kube_flags[@]}" -f -
+  kubectl get service "${kube_flags[@]}" service-${version}-test -o json | kubectl replace "${kube_flags[@]}" -f -
 
   ### Delete services by id
   # Pre-condition: redis-master-service service is running
@@ -465,8 +556,8 @@ __EOF__
   # Pre-condition: Only the default kubernetes services are running
   kube::test::get_object_assert services "{{range.items}}{{$id_field}}:{{end}}" 'kubernetes:'
   # Command
-  kubectl create -f examples/guestbook/redis-master-service.json "${kube_flags[@]}"
-  kubectl create -f examples/guestbook/redis-slave-service.json "${kube_flags[@]}"
+  kubectl create -f examples/guestbook/redis-master-service.yaml "${kube_flags[@]}"
+  kubectl create -f examples/guestbook/redis-slave-service.yaml "${kube_flags[@]}"
   # Post-condition: redis-master and redis-slave services are running
   kube::test::get_object_assert services "{{range.items}}{{$id_field}}:{{end}}" 'kubernetes:redis-master:redis-slave:'
 
@@ -489,7 +580,7 @@ __EOF__
   # Pre-condition: no replication controller is running
   kube::test::get_object_assert rc "{{range.items}}{{$id_field}}:{{end}}" ''
   # Command
-  kubectl create -f examples/guestbook/frontend-controller.json "${kube_flags[@]}"
+  kubectl create -f examples/guestbook/frontend-controller.yaml "${kube_flags[@]}"
   kubectl stop rc frontend "${kube_flags[@]}"
   # Post-condition: no pods from frontend controller
   kube::test::get_object_assert 'pods -l "name=frontend"' "{{range.items}}{{$id_field}}:{{end}}" ''
@@ -498,7 +589,7 @@ __EOF__
   # Pre-condition: no replication controller is running
   kube::test::get_object_assert rc "{{range.items}}{{$id_field}}:{{end}}" ''
   # Command
-  kubectl create -f examples/guestbook/frontend-controller.json "${kube_flags[@]}"
+  kubectl create -f examples/guestbook/frontend-controller.yaml "${kube_flags[@]}"
   # Post-condition: frontend replication controller is running
   kube::test::get_object_assert rc "{{range.items}}{{$id_field}}:{{end}}" 'frontend:'
   # Describe command should print detailed information
@@ -533,20 +624,24 @@ __EOF__
   kube::test::get_object_assert 'rc frontend' "{{$rc_replicas_field}}" '3'
   # Command
   kubectl expose rc frontend --port=80 "${kube_flags[@]}"
-  # Post-condition: service exists
-  kube::test::get_object_assert 'service frontend' "{{$port_field}}" '80'
+  # Post-condition: service exists and the port is unnamed
+  kube::test::get_object_assert 'service frontend' "{{$port_name}} {{$port_field}}" '<no value> 80'
   # Command
   kubectl expose service frontend --port=443 --name=frontend-2 "${kube_flags[@]}"
-  # Post-condition: service exists
-  kube::test::get_object_assert 'service frontend-2' "{{$port_field}}" '443'
+  # Post-condition: service exists and the port is unnamed
+  kube::test::get_object_assert 'service frontend-2' "{{$port_name}} {{$port_field}}" '<no value> 443'
   # Command
-  kubectl create -f examples/limitrange/valid-pod.json "${kube_flags[@]}"
+  kubectl create -f docs/user-guide/limitrange/valid-pod.yaml "${kube_flags[@]}"
   kubectl expose pod valid-pod --port=444 --name=frontend-3 "${kube_flags[@]}"
-  # Post-condition: service exists
-  kube::test::get_object_assert 'service frontend-3' "{{$port_field}}" '444'
+  # Post-condition: service exists and the port is unnamed
+  kube::test::get_object_assert 'service frontend-3' "{{$port_name}} {{$port_field}}" '<no value> 444'
+  # Create a service using service/v1 generator
+  kubectl expose rc frontend --port=80 --name=frontend-4 --generator=service/v1 "${kube_flags[@]}"
+  # Post-condition: service exists and the port is named default.
+  kube::test::get_object_assert 'service frontend-4' "{{$port_name}} {{$port_field}}" 'default 80'
   # Cleanup services
   kubectl delete pod valid-pod "${kube_flags[@]}"
-  kubectl delete service frontend{,-2,-3} "${kube_flags[@]}"
+  kubectl delete service frontend{,-2,-3,-4} "${kube_flags[@]}"
 
   ### Perform a rolling update with --image
   # Command
@@ -566,8 +661,8 @@ __EOF__
   # Pre-condition: no replication controller is running
   kube::test::get_object_assert rc "{{range.items}}{{$id_field}}:{{end}}" ''
   # Command
-  kubectl create -f examples/guestbook/frontend-controller.json "${kube_flags[@]}"
-  kubectl create -f examples/guestbook/redis-slave-controller.json "${kube_flags[@]}"
+  kubectl create -f examples/guestbook/frontend-controller.yaml "${kube_flags[@]}"
+  kubectl create -f examples/guestbook/redis-slave-controller.yaml "${kube_flags[@]}"
   # Post-condition: frontend and redis-slave
   kube::test::get_object_assert rc "{{range.items}}{{$id_field}}:{{end}}" 'frontend:redis-slave:'
 
@@ -587,13 +682,13 @@ __EOF__
   # Pre-condition: no persistent volumes currently exist
   kube::test::get_object_assert pv "{{range.items}}{{.$id_field}}:{{end}}" ''
   # Command
-  kubectl create -f examples/persistent-volumes/volumes/local-01.yaml "${kube_flags[@]}"
+  kubectl create -f docs/user-guide/persistent-volumes/volumes/local-01.yaml "${kube_flags[@]}"
   kube::test::get_object_assert pv "{{range.items}}{{.$id_field}}:{{end}}" 'pv0001:'
   kubectl delete pv pv0001 "${kube_flags[@]}"
-  kubectl create -f examples/persistent-volumes/volumes/local-02.yaml "${kube_flags[@]}"
+  kubectl create -f docs/user-guide/persistent-volumes/volumes/local-02.yaml "${kube_flags[@]}"
   kube::test::get_object_assert pv "{{range.items}}{{.$id_field}}:{{end}}" 'pv0002:'
   kubectl delete pv pv0002 "${kube_flags[@]}"
-  kubectl create -f examples/persistent-volumes/volumes/gce.yaml "${kube_flags[@]}"
+  kubectl create -f docs/user-guide/persistent-volumes/volumes/gce.yaml "${kube_flags[@]}"
   kube::test::get_object_assert pv "{{range.items}}{{.$id_field}}:{{end}}" 'pv0003:'
   kubectl delete pv pv0003 "${kube_flags[@]}"
   # Post-condition: no PVs
@@ -607,15 +702,15 @@ __EOF__
   # Pre-condition: no persistent volume claims currently exist
   kube::test::get_object_assert pvc "{{range.items}}{{.$id_field}}:{{end}}" ''
   # Command
-  kubectl create -f examples/persistent-volumes/claims/claim-01.yaml "${kube_flags[@]}"
+  kubectl create -f docs/user-guide/persistent-volumes/claims/claim-01.yaml "${kube_flags[@]}"
   kube::test::get_object_assert pvc "{{range.items}}{{.$id_field}}:{{end}}" 'myclaim-1:'
   kubectl delete pvc myclaim-1 "${kube_flags[@]}"
 
-  kubectl create -f examples/persistent-volumes/claims/claim-02.yaml "${kube_flags[@]}"
+  kubectl create -f docs/user-guide/persistent-volumes/claims/claim-02.yaml "${kube_flags[@]}"
   kube::test::get_object_assert pvc "{{range.items}}{{.$id_field}}:{{end}}" 'myclaim-2:'
   kubectl delete pvc myclaim-2 "${kube_flags[@]}"
 
-  kubectl create -f examples/persistent-volumes/claims/claim-03.json "${kube_flags[@]}"
+  kubectl create -f docs/user-guide/persistent-volumes/claims/claim-03.json "${kube_flags[@]}"
   kube::test::get_object_assert pvc "{{range.items}}{{.$id_field}}:{{end}}" 'myclaim-3:'
   kubectl delete pvc myclaim-3 "${kube_flags[@]}"
   # Post-condition: no PVCs
@@ -633,13 +728,13 @@ __EOF__
 
   kube::test::describe_object_assert nodes "127.0.0.1" "Name:" "Labels:" "CreationTimestamp:" "Conditions:" "Addresses:" "Capacity:" "Pods:"
 
-  ### --patch update can mark node unschedulable
+  ### kubectl patch update can mark node unschedulable
   # Pre-condition: node is schedulable
   kube::test::get_object_assert "nodes 127.0.0.1" "{{.spec.unschedulable}}" '<no value>'
-  kubectl update "${kube_flags[@]}" nodes "127.0.0.1" --patch='{"spec":{"unschedulable":true}}'
+  kubectl patch "${kube_flags[@]}" nodes "127.0.0.1" -p='{"spec":{"unschedulable":true}}'
   # Post-condition: node is unschedulable
   kube::test::get_object_assert "nodes 127.0.0.1" "{{.spec.unschedulable}}" 'true'
-  kubectl update "${kube_flags[@]}" nodes "127.0.0.1" --patch='{"spec":{"unschedulable":null}}'
+  kubectl patch "${kube_flags[@]}" nodes "127.0.0.1" -p='{"spec":{"unschedulable":null}}'
   # Post-condition: node is schedulable
   kube::test::get_object_assert "nodes 127.0.0.1" "{{.spec.unschedulable}}" '<no value>'
 
@@ -692,6 +787,15 @@ __EOF__
   fi
 
   kube::test::clear_all
+}
+
+kube_api_versions=(
+  ""
+  v1beta3
+  v1
+)
+for version in "${kube_api_versions[@]}"; do
+  KUBE_API_VERSIONS="v1,v1beta3" runTests "${version}"
 done
 
 kube::log::status "TEST PASSED"

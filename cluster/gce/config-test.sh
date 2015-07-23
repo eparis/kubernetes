@@ -28,9 +28,9 @@ MINION_DISK_SIZE=${MINION_DISK_SIZE:-100GB}
 KUBE_APISERVER_REQUEST_TIMEOUT=300
 
 OS_DISTRIBUTION=${KUBE_OS_DISTRIBUTION:-debian}
-MASTER_IMAGE=${KUBE_GCE_MASTER_IMAGE:-container-vm-v20150611}
+MASTER_IMAGE=${KUBE_GCE_MASTER_IMAGE:-container-vm-v20150715}
 MASTER_IMAGE_PROJECT=${KUBE_GCE_MASTER_PROJECT:-google-containers}
-MINION_IMAGE=${KUBE_GCE_MINION_IMAGE:-container-vm-v20150611}
+MINION_IMAGE=${KUBE_GCE_MINION_IMAGE:-container-vm-v20150715}
 MINION_IMAGE_PROJECT=${KUBE_GCE_MINION_PROJECT:-google-containers}
 CONTAINER_RUNTIME=${KUBE_CONTAINER_RUNTIME:-docker}
 RKT_VERSION=${KUBE_RKT_VERSION:-0.5.5}
@@ -46,12 +46,6 @@ MINION_SCOPES=("storage-ro" "compute-rw" "https://www.googleapis.com/auth/loggin
 # Increase the sleep interval value if concerned about API rate limits. 3, in seconds, is the default.
 POLL_SLEEP_INTERVAL=3
 SERVICE_CLUSTER_IP_RANGE="10.0.0.0/16"  # formerly PORTAL_NET
-
-# When set to true, Docker Cache is enabled by default as part of the cluster bring up.
-ENABLE_DOCKER_REGISTRY_CACHE=true
-
-# Optional: Install node monitoring.
-ENABLE_NODE_MONITORING="${KUBE_ENABLE_NODE_MONITORING:-true}"
 
 # Optional: Cluster monitoring to setup as part of the cluster bring up:
 #   none     - No cluster monitoring setup

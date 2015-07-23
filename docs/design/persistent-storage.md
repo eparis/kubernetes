@@ -1,3 +1,35 @@
+<!-- BEGIN MUNGE: UNVERSIONED_WARNING -->
+
+<!-- BEGIN STRIP_FOR_RELEASE -->
+
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+
+<h2>PLEASE NOTE: This document applies to the HEAD of the source tree</h2>
+
+If you are using a released version of Kubernetes, you should
+refer to the docs that go with that version.
+
+<strong>
+The latest 1.0.x release of this document can be found
+[here](http://releases.k8s.io/release-1.0/docs/design/persistent-storage.md).
+
+Documentation for other releases can be found at
+[releases.k8s.io](http://releases.k8s.io).
+</strong>
+--
+
+<!-- END STRIP_FOR_RELEASE -->
+
+<!-- END MUNGE: UNVERSIONED_WARNING -->
 # Persistent Storage
 
 This document proposes a model for managing persistent, cluster-scoped storage for applications requiring long lived data.
@@ -6,7 +38,7 @@ This document proposes a model for managing persistent, cluster-scoped storage f
 
 Two new API kinds:
 
-A `PersistentVolume` (PV) is a storage resource provisioned by an administrator.  It is analogous to a node.
+A `PersistentVolume` (PV) is a storage resource provisioned by an administrator.  It is analogous to a node. See [Persistent Volume Guide](../user-guide/persistent-volumes/) for how to use it.
 
 A `PersistentVolumeClaim` (PVC) is a user's request for a persistent volume to use in a pod. It is analogous to a pod.  
 
@@ -112,7 +144,7 @@ spec:
 
 kubectl get pv
 
-NAME                LABELS              CAPACITY            ACCESSMODES         STATUS              CLAIM
+NAME                LABELS              CAPACITY            ACCESSMODES         STATUS              CLAIM              REASON
 pv0001              map[]               10737418240         RWO                 Pending    
 
 
@@ -157,7 +189,7 @@ myclaim-1           map[]               pending
 
 kubectl get pv
 
-NAME                LABELS              CAPACITY            ACCESSMODES         STATUS              CLAIM
+NAME                LABELS              CAPACITY            ACCESSMODES         STATUS              CLAIM                                                        REASON
 pv0001              map[]               10737418240         RWO                 Bound               myclaim-1 / f4b3d283-c0ef-11e4-8be4-80e6500a981e
 
 
@@ -214,4 +246,6 @@ The ```PersistentVolumeClaimBinder``` will reconcile this by removing the claim 
 Admins can script the recycling of released volumes.  Future dynamic provisioners will understand how a volume should be recycled.  
 
 
+<!-- BEGIN MUNGE: GENERATED_ANALYTICS -->
 [![Analytics](https://kubernetes-site.appspot.com/UA-36037335-10/GitHub/docs/design/persistent-storage.md?pixel)]()
+<!-- END MUNGE: GENERATED_ANALYTICS -->

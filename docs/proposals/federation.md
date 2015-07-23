@@ -1,3 +1,35 @@
+<!-- BEGIN MUNGE: UNVERSIONED_WARNING -->
+
+<!-- BEGIN STRIP_FOR_RELEASE -->
+
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+
+<h2>PLEASE NOTE: This document applies to the HEAD of the source tree</h2>
+
+If you are using a released version of Kubernetes, you should
+refer to the docs that go with that version.
+
+<strong>
+The latest 1.0.x release of this document can be found
+[here](http://releases.k8s.io/release-1.0/docs/proposals/federation.md).
+
+Documentation for other releases can be found at
+[releases.k8s.io](http://releases.k8s.io).
+</strong>
+--
+
+<!-- END STRIP_FOR_RELEASE -->
+
+<!-- END MUNGE: UNVERSIONED_WARNING -->
 #Kubernetes Cluster Federation   
 ##(a.k.a. "Ubernetes")
 
@@ -6,7 +38,7 @@
 ## _by Quinton Hoole ([quinton@google.com](mailto:quinton@google.com))_  
 _Initial revision: 2015-03-05_  
 _Last updated: 2015-03-09_  
-This doc: [tinyurl.com/ubernetes](http://tinyurl.com/ubernetes)  
+This doc: [tinyurl.com/ubernetesv2](http://tinyurl.com/ubernetesv2)  
 Slides: [tinyurl.com/ubernetes-slides](http://tinyurl.com/ubernetes-slides)
 
 ## Introduction
@@ -431,4 +463,6 @@ their primary zookeeper replica? And now how do I do a shared, highly
 available redis database?
 
 
+<!-- BEGIN MUNGE: GENERATED_ANALYTICS -->
 [![Analytics](https://kubernetes-site.appspot.com/UA-36037335-10/GitHub/docs/proposals/federation.md?pixel)]()
+<!-- END MUNGE: GENERATED_ANALYTICS -->

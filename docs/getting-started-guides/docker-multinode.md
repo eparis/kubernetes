@@ -1,14 +1,57 @@
-### Running Multi-Node Kubernetes Using Docker
+<!-- BEGIN MUNGE: UNVERSIONED_WARNING -->
+
+<!-- BEGIN STRIP_FOR_RELEASE -->
+
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+
+<h2>PLEASE NOTE: This document applies to the HEAD of the source tree</h2>
+
+If you are using a released version of Kubernetes, you should
+refer to the docs that go with that version.
+
+<strong>
+The latest 1.0.x release of this document can be found
+[here](http://releases.k8s.io/release-1.0/docs/getting-started-guides/docker-multinode.md).
+
+Documentation for other releases can be found at
+[releases.k8s.io](http://releases.k8s.io).
+</strong>
+--
+
+<!-- END STRIP_FOR_RELEASE -->
+
+<!-- END MUNGE: UNVERSIONED_WARNING -->
+Running Multi-Node Kubernetes Using Docker
+------------------------------------------
 
 _Note_:
 These instructions are somewhat significantly more advanced than the [single node](docker.md) instructions.  If you are
 interested in just starting to explore Kubernetes, we recommend that you start there.
 
-## Table of Contents
-  * [Overview](#overview)
-  * [Installing the master node](#master-node)
-  * [Installing a worker node](#adding-a-worker-node)
-  * [Testing your cluster](#testing-your-cluster)
+_Note_:
+There is a [bug](https://github.com/docker/docker/issues/14106) in Docker 1.7.0 that prevents this from working correctly.
+Please install Docker 1.6.2 or wait for Docker 1.7.1.
+
+**Table of Contents**
+
+- [Prerequisites](#prerequisites)
+- [Overview](#overview)
+  - [Bootstrap Docker](#bootstrap-docker)
+- [Master Node](#master-node)
+- [Adding a worker node](#adding-a-worker-node)
+- [Testing your cluster](#testing-your-cluster)
+
+## Prerequisites
+1. You need a machine with docker installed.
 
 ## Overview
 This guide will set up a 2-node kubernetes cluster, consisting of a _master_ node which hosts the API server and orchestrates work
@@ -42,7 +85,9 @@ See [here](docker-multinode/worker.md) for detailed instructions.
 
 Once your cluster has been created you can [test it out](docker-multinode/testing.md)
 
-For more complete applications, please look in the [examples directory](../../examples)
+For more complete applications, please look in the [examples directory](../../examples/)
 
 
+<!-- BEGIN MUNGE: GENERATED_ANALYTICS -->
 [![Analytics](https://kubernetes-site.appspot.com/UA-36037335-10/GitHub/docs/getting-started-guides/docker-multinode.md?pixel)]()
+<!-- END MUNGE: GENERATED_ANALYTICS -->

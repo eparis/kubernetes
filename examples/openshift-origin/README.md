@@ -1,3 +1,35 @@
+<!-- BEGIN MUNGE: UNVERSIONED_WARNING -->
+
+<!-- BEGIN STRIP_FOR_RELEASE -->
+
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+
+<h2>PLEASE NOTE: This document applies to the HEAD of the source tree</h2>
+
+If you are using a released version of Kubernetes, you should
+refer to the docs that go with that version.
+
+<strong>
+The latest 1.0.x release of this document can be found
+[here](http://releases.k8s.io/release-1.0/examples/openshift-origin/README.md).
+
+Documentation for other releases can be found at
+[releases.k8s.io](http://releases.k8s.io).
+</strong>
+--
+
+<!-- END STRIP_FOR_RELEASE -->
+
+<!-- END MUNGE: UNVERSIONED_WARNING -->
 ## OpenShift Origin example
 
 This example shows how to run OpenShift Origin as a pod on an existing Kubernetes cluster.
@@ -131,7 +163,7 @@ You should now get a pod provisioned whose name begins with openshift.
 ```shell
 $ cluster/kubectl.sh get pods | grep openshift
 $ cluster/kubectl.sh log openshift-t7147 origin
-Running: cluster/../cluster/gce/../../cluster/../_output/dockerized/bin/linux/amd64/kubectl log openshift-t7t47 origin
+Running: cluster/../cluster/gce/../../cluster/../_output/dockerized/bin/linux/amd64/kubectl logs openshift-t7t47 origin
 2015-04-30T15:26:00.454146869Z I0430 15:26:00.454005       1 start_master.go:296] Starting an OpenShift master, reachable at 0.0.0.0:8443 (etcd: [https://10.0.27.2:4001])
 2015-04-30T15:26:00.454231211Z I0430 15:26:00.454223       1 start_master.go:297] OpenShift master public address is https://104.197.73.241:8443
 ```
@@ -155,4 +187,6 @@ $ osc --help
 ```
 
 
+<!-- BEGIN MUNGE: GENERATED_ANALYTICS -->
 [![Analytics](https://kubernetes-site.appspot.com/UA-36037335-10/GitHub/examples/openshift-origin/README.md?pixel)]()
+<!-- END MUNGE: GENERATED_ANALYTICS -->

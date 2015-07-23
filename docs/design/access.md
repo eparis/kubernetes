@@ -1,3 +1,35 @@
+<!-- BEGIN MUNGE: UNVERSIONED_WARNING -->
+
+<!-- BEGIN STRIP_FOR_RELEASE -->
+
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+
+<h2>PLEASE NOTE: This document applies to the HEAD of the source tree</h2>
+
+If you are using a released version of Kubernetes, you should
+refer to the docs that go with that version.
+
+<strong>
+The latest 1.0.x release of this document can be found
+[here](http://releases.k8s.io/release-1.0/docs/design/access.md).
+
+Documentation for other releases can be found at
+[releases.k8s.io](http://releases.k8s.io).
+</strong>
+--
+
+<!-- END STRIP_FOR_RELEASE -->
+
+<!-- END MUNGE: UNVERSIONED_WARNING -->
 # K8s Identity and Access Management Sketch
 
 This document suggests a direction for identity and access management in the Kubernetes system.
@@ -141,7 +173,7 @@ Improvements:
 ###Namespaces
 K8s will have a have a `namespace` API object.  It is similar to a Google Compute Engine `project`.  It provides a namespace for objects created by a group of people co-operating together, preventing name collisions with non-cooperating groups.  It also serves as a reference point for authorization policies.
 
-Namespaces are described in [namespace.md](namespaces.md).
+Namespaces are described in [namespaces.md](namespaces.md).
 
 In the Enterprise Profile:
    - a `userAccount` may have permission to access several `namespace`s.
@@ -151,7 +183,7 @@ In the Simple Profile:
 
 Namespaces versus userAccount vs Labels:
 - `userAccount`s are intended for audit logging (both name and UID should be logged), and to define who has access to `namespace`s.
-- `labels` (see [docs/labels.md](/docs/labels.md)) should be used to distinguish pods, users, and other objects that cooperate towards a common goal but are different in some way, such as version, or responsibilities.
+- `labels` (see [docs/user-guide/labels.md](../../docs/user-guide/labels.md)) should be used to distinguish pods, users, and other objects that cooperate towards a common goal but are different in some way, such as version, or responsibilities.
 - `namespace`s prevent name collisions between uncoordinated groups of people, and provide a place to attach common policies for co-operating groups of people.
 
 
@@ -212,7 +244,7 @@ Policy objects may be applicable only to a single namespace or to all namespaces
 
 ## Accounting
 
-The API should have a `quota` concept (see https://github.com/GoogleCloudPlatform/kubernetes/issues/442).  A quota object relates a namespace (and optionally a label selector) to a maximum quantity of resources that may be used (see [resources.md](/docs/resources.md)).
+The API should have a `quota` concept (see https://github.com/GoogleCloudPlatform/kubernetes/issues/442).  A quota object relates a namespace (and optionally a label selector) to a maximum quantity of resources that may be used (see [resources design doc](resources.md)).
 
 Initially:
 - a `quota` object is immutable.
@@ -248,4 +280,6 @@ Improvements:
 - Policies to drop logging for high rate trusted API calls, or by users performing audit or other sensitive functions.
 
 
+<!-- BEGIN MUNGE: GENERATED_ANALYTICS -->
 [![Analytics](https://kubernetes-site.appspot.com/UA-36037335-10/GitHub/docs/design/access.md?pixel)]()
+<!-- END MUNGE: GENERATED_ANALYTICS -->

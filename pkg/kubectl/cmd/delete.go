@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	delete_long = `Delete a resource by filename, stdin, resource and ID, or by resources and label selector.
+	delete_long = `Delete a resource by filename, stdin, resource and name, or by resources and label selector.
 
 JSON and YAML formats are accepted.
 
@@ -42,16 +42,16 @@ arguments are used and the filename is ignored.
 Note that the delete command does NOT do resource version checks, so if someone
 submits an update to a resource right when you submit a delete, their update
 will be lost along with the rest of the resource.`
-	delete_example = `// Delete a pod using the type and ID specified in pod.json.
-$ kubectl delete -f pod.json
+	delete_example = `// Delete a pod using the type and name specified in pod.json.
+$ kubectl delete -f ./pod.json
 
-// Delete a pod based on the type and ID in the JSON passed into stdin.
+// Delete a pod based on the type and name in the JSON passed into stdin.
 $ cat pod.json | kubectl delete -f -
 
 // Delete pods and services with label name=myLabel.
 $ kubectl delete pods,services -l name=myLabel
 
-// Delete a pod with ID 1234-56-7890-234234-456456.
+// Delete a pod with UID 1234-56-7890-234234-456456.
 $ kubectl delete pod 1234-56-7890-234234-456456
 
 // Delete all pods
@@ -61,8 +61,8 @@ $ kubectl delete pods --all`
 func NewCmdDelete(f *cmdutil.Factory, out io.Writer) *cobra.Command {
 	var filenames util.StringList
 	cmd := &cobra.Command{
-		Use:     "delete ([-f FILENAME] | (RESOURCE [(ID | -l label | --all)]",
-		Short:   "Delete a resource by filename, stdin, resource and ID, or by resources and label selector.",
+		Use:     "delete ([-f FILENAME] | (RESOURCE [(NAME | -l label | --all)]",
+		Short:   "Delete a resource by filename, stdin, resource and name, or by resources and label selector.",
 		Long:    delete_long,
 		Example: delete_example,
 		Run: func(cmd *cobra.Command, args []string) {
@@ -75,14 +75,14 @@ func NewCmdDelete(f *cmdutil.Factory, out io.Writer) *cobra.Command {
 	cmd.Flags().StringP("selector", "l", "", "Selector (label query) to filter on.")
 	cmd.Flags().Bool("all", false, "[-all] to select all the specified resources.")
 	cmd.Flags().Bool("ignore-not-found", false, "Treat \"resource not found\" as a successful delete.")
-	cmd.Flags().Bool("cascade", true, "If true, cascade the delete resources managed by this resource (e.g. Pods created by a ReplicationController).  Default true.")
+	cmd.Flags().Bool("cascade", true, "If true, cascade the deletion of the resources managed by this resource (e.g. Pods created by a ReplicationController).  Default true.")
 	cmd.Flags().Int("grace-period", -1, "Period of time in seconds given to the resource to terminate gracefully. Ignored if negative.")
 	cmd.Flags().Duration("timeout", 0, "The length of time to wait before giving up on a delete, zero means determine a timeout from the size of the object")
 	return cmd
 }
 
 func RunDelete(f *cmdutil.Factory, out io.Writer, cmd *cobra.Command, args []string, filenames util.StringList) error {
-	cmdNamespace, err := f.DefaultNamespace()
+	cmdNamespace, enforceNamespace, err := f.DefaultNamespace()
 	if err != nil {
 		return err
 	}
@@ -90,7 +90,7 @@ func RunDelete(f *cmdutil.Factory, out io.Writer, cmd *cobra.Command, args []str
 	r := resource.NewBuilder(mapper, typer, f.ClientMapperForCommand()).
 		ContinueOnError().
 		NamespaceParam(cmdNamespace).DefaultNamespace().
-		FilenameParam(filenames...).
+		FilenameParam(enforceNamespace, filenames...).
 		SelectorParam(cmdutil.GetFlagString(cmd, "selector")).
 		SelectAllParam(cmdutil.GetFlagBool(cmd, "all")).
 		ResourceTypeOrNameArgs(false, args...).RequireObject(false).
@@ -122,14 +122,14 @@ func ReapResult(r *resource.Result, f *cmdutil.Factory, out io.Writer, isDefault
 			if kubectl.IsNoSuchReaperError(err) && isDefaultDelete {
 				return deleteResource(info, out)
 			}
-			return err
+			return cmdutil.AddSourceToErr("reaping", info.Source, err)
 		}
 		var options *api.DeleteOptions
 		if gracePeriod >= 0 {
 			options = api.NewDeleteOptions(int64(gracePeriod))
 		}
 		if _, err := reaper.Stop(info.Namespace, info.Name, timeout, options); err != nil {
-			return err
+			return cmdutil.AddSourceToErr("stopping", info.Source, err)
 		}
 		fmt.Fprintf(out, "%s/%s\n", info.Mapping.Resource, info.Name)
 		return nil
@@ -163,7 +163,7 @@ func DeleteResult(r *resource.Result, out io.Writer, ignoreNotFound bool) error 
 
 func deleteResource(info *resource.Info, out io.Writer) error {
 	if err := resource.NewHelper(info.Client, info.Mapping).Delete(info.Namespace, info.Name); err != nil {
-		return err
+		return cmdutil.AddSourceToErr("deleting", info.Source, err)
 	}
 	fmt.Fprintf(out, "%s/%s\n", info.Mapping.Resource, info.Name)
 	return nil

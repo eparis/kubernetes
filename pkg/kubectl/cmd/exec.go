@@ -38,7 +38,8 @@ $ kubectl exec 123456-7890 date
 // get output from running 'date' in ruby-container from pod 123456-7890
 $ kubectl exec 123456-7890 -c ruby-container date
 
-//switch to raw terminal mode, sends stdin to 'bash' in ruby-container from pod 123456-780 and sends stdout/stderr from 'bash' back to the client
+// switch to raw terminal mode, sends stdin to 'bash' in ruby-container from pod 123456-780
+// and sends stdout/stderr from 'bash' back to the client
 $ kubectl exec 123456-7890 -c ruby-container -i -t -- bash -il`
 )
 
@@ -103,7 +104,7 @@ func extractPodAndContainer(cmd *cobra.Command, argsIn []string, p *execParams) 
 
 func RunExec(f *cmdutil.Factory, cmd *cobra.Command, cmdIn io.Reader, cmdOut, cmdErr io.Writer, p *execParams, argsIn []string, re remoteExecutor) error {
 	podName, containerName, args, err := extractPodAndContainer(cmd, argsIn, p)
-	namespace, err := f.DefaultNamespace()
+	namespace, _, err := f.DefaultNamespace()
 	if err != nil {
 		return err
 	}
@@ -168,7 +169,7 @@ func RunExec(f *cmdutil.Factory, cmd *cobra.Command, cmdIn io.Reader, cmdOut, cm
 		return err
 	}
 
-	req := client.RESTClient.Get().
+	req := client.RESTClient.Post().
 		Resource("pods").
 		Name(pod.Name).
 		Namespace(namespace).

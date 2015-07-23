@@ -1,12 +1,44 @@
-## Simple rolling update
-This is a lightweight design document for simple rolling update in ```kubectl```
+<!-- BEGIN MUNGE: UNVERSIONED_WARNING -->
 
-Complete execution flow can be found [here](#execution-details).
+<!-- BEGIN STRIP_FOR_RELEASE -->
+
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+
+<h2>PLEASE NOTE: This document applies to the HEAD of the source tree</h2>
+
+If you are using a released version of Kubernetes, you should
+refer to the docs that go with that version.
+
+<strong>
+The latest 1.0.x release of this document can be found
+[here](http://releases.k8s.io/release-1.0/docs/design/simple-rolling-update.md).
+
+Documentation for other releases can be found at
+[releases.k8s.io](http://releases.k8s.io).
+</strong>
+--
+
+<!-- END STRIP_FOR_RELEASE -->
+
+<!-- END MUNGE: UNVERSIONED_WARNING -->
+## Simple rolling update
+This is a lightweight design document for simple [rolling update](../user-guide/kubectl/kubectl_rolling-update.md) in ```kubectl```. 
+
+Complete execution flow can be found [here](#execution-details). See the [example of rolling update](../user-guide/update-demo/) for more information. 
 
 ### Lightweight rollout
 Assume that we have a current replication controller named ```foo``` and it is running image ```image:v1```
 
-```kubectl rolling-update rc foo [foo-v2] --image=myimage:v2```
+```kubectl rolling-update foo [foo-v2] --image=myimage:v2```
 
 If the user doesn't specify a name for the 'next' replication controller, then the 'next' replication controller is renamed to
 the name of the original replication controller.
@@ -27,7 +59,7 @@ To facilitate recovery in the case of a crash of the updating process itself, we
 Recovery is achieved by issuing the same command again:
 
 ```
-kubectl rolling-update rc foo [foo-v2] --image=myimage:v2
+kubectl rolling-update foo [foo-v2] --image=myimage:v2
 ```
 
 Whenever the rolling update command executes, the kubectl client looks for replication controllers called ```foo``` and ```foo-next```, if they exist, an attempt is
@@ -38,11 +70,11 @@ it is assumed that the rollout is nearly completed, and ```foo-next``` is rename
 ### Aborting a rollout
 Abort is assumed to want to reverse a rollout in progress.
 
-```kubectl rolling-update rc foo [foo-v2] --rollback```
+```kubectl rolling-update foo [foo-v2] --rollback```
 
 This is really just semantic sugar for:
 
-```kubectl rolling-update rc foo-v2 foo```
+```kubectl rolling-update foo-v2 foo```
 
 With the added detail that it moves the ```desired-replicas``` annotation from ```foo-v2``` to ```foo```
 
@@ -91,4 +123,6 @@ then ```foo-next``` is synthesized using the pattern ```<controller-name>-<hash-
       * Goto Rollout with ```foo``` and ```foo-next``` trading places.
 
 
+<!-- BEGIN MUNGE: GENERATED_ANALYTICS -->
 [![Analytics](https://kubernetes-site.appspot.com/UA-36037335-10/GitHub/docs/design/simple-rolling-update.md?pixel)]()
+<!-- END MUNGE: GENERATED_ANALYTICS -->

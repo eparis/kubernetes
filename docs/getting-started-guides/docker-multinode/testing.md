@@ -1,3 +1,35 @@
+<!-- BEGIN MUNGE: UNVERSIONED_WARNING -->
+
+<!-- BEGIN STRIP_FOR_RELEASE -->
+
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+
+<h2>PLEASE NOTE: This document applies to the HEAD of the source tree</h2>
+
+If you are using a released version of Kubernetes, you should
+refer to the docs that go with that version.
+
+<strong>
+The latest 1.0.x release of this document can be found
+[here](http://releases.k8s.io/release-1.0/docs/getting-started-guides/docker-multinode/testing.md).
+
+Documentation for other releases can be found at
+[releases.k8s.io](http://releases.k8s.io).
+</strong>
+--
+
+<!-- END STRIP_FOR_RELEASE -->
+
+<!-- END MUNGE: UNVERSIONED_WARNING -->
 ## Testing your Kubernetes cluster.
 
 To validate that your node(s) have been added, run:
@@ -7,6 +39,7 @@ kubectl get nodes
 ```
 
 That should show something like:
+
 ```
 NAME           LABELS                                 STATUS
 10.240.99.26   kubernetes.io/hostname=10.240.99.26    Ready
@@ -14,27 +47,31 @@ NAME           LABELS                                 STATUS
 ```
 
 If the status of any node is ```Unknown``` or ```NotReady``` your cluster is broken, double check that all containers are running properly, and if all else fails, contact us on IRC at
-```#google-containers``` for advice.
+[```#google-containers```](http://webchat.freenode.net/?channels=google-containers) for advice.
 
 ### Run an application
+
 ```sh
 kubectl -s http://localhost:8080 run nginx --image=nginx --port=80
 ```
 
 now run ```docker ps``` you should see nginx running.  You may need to wait a few minutes for the image to get pulled.
 
-### Expose it as a service:
+### Expose it as a service
+
 ```sh
 kubectl expose rc nginx --port=80
 ```
 
 This should print:
+
 ```
 NAME      LABELS    SELECTOR              IP          PORT(S)
 nginx     <none>    run=nginx             <ip-addr>   80/TCP
 ```
 
 Hit the webserver:
+
 ```sh
 curl <insert-ip-from-above-here>
 ```
@@ -57,4 +94,7 @@ kubectl get pods
 
 You should see pods landing on the newly added machine.
 
+
+<!-- BEGIN MUNGE: GENERATED_ANALYTICS -->
 [![Analytics](https://kubernetes-site.appspot.com/UA-36037335-10/GitHub/docs/getting-started-guides/docker-multinode/testing.md?pixel)]()
+<!-- END MUNGE: GENERATED_ANALYTICS -->

@@ -1,3 +1,35 @@
+<!-- BEGIN MUNGE: UNVERSIONED_WARNING -->
+
+<!-- BEGIN STRIP_FOR_RELEASE -->
+
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+
+<h2>PLEASE NOTE: This document applies to the HEAD of the source tree</h2>
+
+If you are using a released version of Kubernetes, you should
+refer to the docs that go with that version.
+
+<strong>
+The latest 1.0.x release of this document can be found
+[here](http://releases.k8s.io/release-1.0/examples/glusterfs/README.md).
+
+Documentation for other releases can be found at
+[releases.k8s.io](http://releases.k8s.io).
+</strong>
+--
+
+<!-- END STRIP_FOR_RELEASE -->
+
+<!-- END MUNGE: UNVERSIONED_WARNING -->
 ## Glusterfs
 
 [Glusterfs](http://www.gluster.org) is an open source scale-out filesystem. These examples provide information about how to allow containers use Glusterfs volumes.
@@ -24,16 +56,19 @@ Here is a snippet of [glusterfs-endpoints.json](glusterfs-endpoints.json),
       ]
 
 ```
+
 The "IP" field should be filled with the address of a node in the Glusterfs server cluster. In this example, it is fine to give any valid value (from 1 to 65535) to the "port" field. 
 
 Create the endpoints,
+
 ```shell
 $ kubectl create -f examples/glusterfs/glusterfs-endpoints.json
 ```
 
 You can verify that the endpoints are successfully created by running
+
 ```shell
-$ kubect get endpoints
+$ kubectl get endpoints
 NAME                ENDPOINTS
 glusterfs-cluster   10.240.106.152:1,10.240.79.157:1
 ```
@@ -60,20 +95,24 @@ The parameters are explained as the followings.
 - **readOnly** is the boolean that sets the mountpoint readOnly or readWrite. 
 
 Create a pod that has a container using Glusterfs volume,
+
 ```shell
 $ kubectl create -f examples/glusterfs/glusterfs-pod.json
 ```
+
 You can verify that the pod is running:
 
 ```shell
 $ kubectl get pods
-POD         IP            CONTAINER(S)   IMAGE(S)              HOST                                  LABELS    STATUS    CREATED          MESSAGE
-glusterfs   10.244.2.13                                        kubernetes-minion-151f/23.236.54.97   <none>    Running   About a minute   
-                          glusterfs      kubernetes/pause                                                      Running   About a minute   
+NAME             READY     STATUS    RESTARTS   AGE
+glusterfs        1/1       Running   0          3m
 
+$ kubectl get pods glusterfs -t '{{.status.hostIP}}{{"\n"}}'
+10.240.169.172
 ```
 
-You may ssh to the host and run 'mount' to see if the Glusterfs volume is mounted,
+You may ssh to the host (the hostIP) and run 'mount' to see if the Glusterfs volume is mounted,
+
 ```shell
 $ mount | grep kube_vol
 10.240.106.152:kube_vol on /var/lib/kubelet/pods/f164a571-fa68-11e4-ad5c-42010af019b7/volumes/kubernetes.io~glusterfs/glusterfsvol type fuse.glusterfs (rw,relatime,user_id=0,group_id=0,default_permissions,allow_other,max_read=131072)
@@ -82,4 +121,6 @@ $ mount | grep kube_vol
 You may also run `docker ps` on the host to see the actual container.
 
 
+<!-- BEGIN MUNGE: GENERATED_ANALYTICS -->
 [![Analytics](https://kubernetes-site.appspot.com/UA-36037335-10/GitHub/examples/glusterfs/README.md?pixel)]()
+<!-- END MUNGE: GENERATED_ANALYTICS -->

@@ -30,6 +30,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/admission"
@@ -44,6 +45,7 @@ import (
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/auth/handlers"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/client"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/fields"
+	"github.com/GoogleCloudPlatform/kubernetes/pkg/healthz"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/labels"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/master/ports"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/registry/componentstatus"
@@ -77,6 +79,7 @@ import (
 	"github.com/emicklei/go-restful"
 	"github.com/emicklei/go-restful/swagger"
 	"github.com/golang/glog"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (
@@ -95,8 +98,8 @@ type Config struct {
 	EnableUISupport       bool
 	// allow downstream consumers to disable swagger
 	EnableSwaggerSupport bool
-	// allow v1beta3 to be conditionally disabled
-	DisableV1Beta3 bool
+	// allow v1beta3 to be conditionally enabled
+	EnableV1Beta3 bool
 	// allow v1 to be conditionally disabled
 	DisableV1 bool
 	// allow downstream consumers to disable the index route
@@ -146,6 +149,9 @@ type Config struct {
 
 	// The range of IPs to be assigned to services with type=ClusterIP or greater
 	ServiceClusterIPRange *net.IPNet
+
+	// The IP address for the master service (must be inside ServiceClusterIPRange
+	ServiceReadWriteIP net.IP
 
 	// The range of ports to be assigned to services with type=NodePort or greater
 	ServiceNodePortRange util.PortRange
@@ -212,10 +218,13 @@ type Master struct {
 	InsecureHandler http.Handler
 
 	// Used for secure proxy
-	dialer        apiserver.ProxyDialerFunc
-	tunnels       *util.SSHTunnelList
-	tunnelsLock   sync.Mutex
-	installSSHKey InstallSSHKey
+	dialer         apiserver.ProxyDialerFunc
+	tunnels        *util.SSHTunnelList
+	tunnelsLock    sync.Mutex
+	installSSHKey  InstallSSHKey
+	lastSync       int64 // Seconds since Epoch
+	lastSyncMetric prometheus.GaugeFunc
+	clock          util.Clock
 }
 
 // NewEtcdHelper returns an EtcdHelper for the provided arguments or an error if the version
@@ -244,6 +253,15 @@ func setDefaults(c *Config) {
 			glog.Fatalf("The service cluster IP range must be at least %d IP addresses", 8)
 		}
 		c.ServiceClusterIPRange = serviceClusterIPRange
+	}
+	if c.ServiceReadWriteIP == nil {
+		// Select the first valid IP from ServiceClusterIPRange to use as the master service IP.
+		serviceReadWriteIP, err := ipallocator.GetIndexedIP(c.ServiceClusterIPRange, 1)
+		if err != nil {
+			glog.Fatalf("Failed to generate service read-write IP for master service: %v", err)
+		}
+		glog.V(4).Infof("Setting master service IP to %q (read-write).", serviceReadWriteIP)
+		c.ServiceReadWriteIP = serviceReadWriteIP
 	}
 	if c.ServiceNodePortRange.Size == 0 {
 		// TODO: Currently no way to specify an empty range (do we need to allow this?)
@@ -311,13 +329,6 @@ func New(c *Config) *Master {
 		glog.Fatalf("master.New() called with config.KubeletClient == nil")
 	}
 
-	// Select the first valid IP from serviceClusterIPRange to use as the master service IP.
-	serviceReadWriteIP, err := ipallocator.GetIndexedIP(c.ServiceClusterIPRange, 1)
-	if err != nil {
-		glog.Fatalf("Failed to generate service read-write IP for master service: %v", err)
-	}
-	glog.V(4).Infof("Setting master service IP to %q (read-write).", serviceReadWriteIP)
-
 	m := &Master{
 		serviceClusterIPRange: c.ServiceClusterIPRange,
 		serviceNodePortRange:  c.ServiceNodePortRange,
@@ -332,7 +343,7 @@ func New(c *Config) *Master {
 		authenticator:         c.Authenticator,
 		authorizer:            c.Authorizer,
 		admissionControl:      c.AdmissionControl,
-		v1beta3:               !c.DisableV1Beta3,
+		v1beta3:               c.EnableV1Beta3,
 		v1:                    !c.DisableV1,
 		requestContextMapper:  c.RequestContextMapper,
 
@@ -343,7 +354,7 @@ func New(c *Config) *Master {
 		externalHost:        c.ExternalHost,
 		clusterIP:           c.PublicAddress,
 		publicReadWritePort: c.ReadWritePort,
-		serviceReadWriteIP:  serviceReadWriteIP,
+		serviceReadWriteIP:  c.ServiceReadWriteIP,
 		// TODO: serviceReadWritePort should be passed in as an argument, it may not always be 443
 		serviceReadWritePort: 443,
 
@@ -412,6 +423,8 @@ func logStackOnRecover(panicReason interface{}, httpWriter http.ResponseWriter) 
 
 // init initializes master.
 func (m *Master) init(c *Config) {
+	healthzChecks := []healthz.HealthzChecker{}
+	m.clock = util.RealClock{}
 	podStorage := podetcd.NewStorage(c.EtcdHelper, c.KubeletClient)
 	podRegistry := pod.NewRegistry(podStorage.Pod)
 
@@ -521,6 +534,7 @@ func (m *Master) init(c *Config) {
 		m.tunnels = &util.SSHTunnelList{}
 		m.dialer = m.Dial
 		m.setupSecureProxy(c.SSHUser, c.SSHKeyfile, publicKeyFile)
+		m.lastSync = m.clock.Now().Unix()
 
 		// This is pretty ugly.  A better solution would be to pull this all the way up into the
 		// server.go file.
@@ -536,6 +550,11 @@ func (m *Master) init(c *Config) {
 		} else {
 			glog.Errorf("Failed to cast %v to HTTPKubeletClient, skipping SSH tunnel.")
 		}
+		healthzChecks = append(healthzChecks, healthz.NamedCheck("SSH Tunnel Check", m.IsTunnelSyncHealthy))
+		m.lastSyncMetric = prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+			Name: "apiserver_proxy_tunnel_sync_latency_secs",
+			Help: "The time since the last successful synchronization of the SSH tunnels for proxy requests.",
+		}, func() float64 { return float64(m.secondsSinceSync()) })
 	}
 
 	apiVersions := []string{}
@@ -552,7 +571,7 @@ func (m *Master) init(c *Config) {
 		apiVersions = append(apiVersions, "v1")
 	}
 
-	apiserver.InstallSupport(m.muxHelper, m.rootWebService)
+	apiserver.InstallSupport(m.muxHelper, m.rootWebService, c.EnableProfiling, healthzChecks...)
 	apiserver.AddApiWebService(m.handlerContainer, c.APIPrefix, apiVersions)
 	defaultVersion := m.defaultAPIGroupVersion()
 	requestInfoResolver := &apiserver.APIRequestInfoResolver{util.NewStringSet(strings.TrimPrefix(defaultVersion.Root, "/")), defaultVersion.Mapper}
@@ -715,7 +734,7 @@ func (m *Master) getServersToValidate(c *Config) map[string]apiserver.Server {
 			addr = etcdUrl.Host
 			port = 4001
 		}
-		serversToValidate[fmt.Sprintf("etcd-%d", ix)] = apiserver.Server{Addr: addr, Port: port, Path: "/v2/keys/"}
+		serversToValidate[fmt.Sprintf("etcd-%d", ix)] = apiserver.Server{Addr: addr, Port: port, Path: "/health", Validate: tools.EtcdHealthCheck}
 	}
 	return serversToValidate
 }
@@ -802,6 +821,8 @@ func (m *Master) Dial(net, addr string) (net.Conn, error) {
 }
 
 func (m *Master) needToReplaceTunnels(addrs []string) bool {
+	m.tunnelsLock.Lock()
+	defer m.tunnelsLock.Unlock()
 	if m.tunnels == nil || m.tunnels.Len() != len(addrs) {
 		return true
 	}
@@ -831,22 +852,37 @@ func (m *Master) getNodeAddresses() ([]string, error) {
 	return addrs, nil
 }
 
+func (m *Master) IsTunnelSyncHealthy(req *http.Request) error {
+	lag := m.secondsSinceSync()
+	if lag > 600 {
+		return fmt.Errorf("Tunnel sync is taking to long: %d", lag)
+	}
+	return nil
+}
+
+func (m *Master) secondsSinceSync() int64 {
+	now := m.clock.Now().Unix()
+	then := atomic.LoadInt64(&m.lastSync)
+	return now - then
+}
+
 func (m *Master) replaceTunnels(user, keyfile string, newAddrs []string) error {
 	glog.Infof("replacing tunnels. New addrs: %v", newAddrs)
 	tunnels := util.MakeSSHTunnels(user, keyfile, newAddrs)
 	if err := tunnels.Open(); err != nil {
 		return err
 	}
+	m.tunnelsLock.Lock()
+	defer m.tunnelsLock.Unlock()
 	if m.tunnels != nil {
 		m.tunnels.Close()
 	}
 	m.tunnels = tunnels
+	atomic.StoreInt64(&m.lastSync, m.clock.Now().Unix())
 	return nil
 }
 
 func (m *Master) loadTunnels(user, keyfile string) error {
-	m.tunnelsLock.Lock()
-	defer m.tunnelsLock.Unlock()
 	addrs, err := m.getNodeAddresses()
 	if err != nil {
 		return err
@@ -861,8 +897,6 @@ func (m *Master) loadTunnels(user, keyfile string) error {
 }
 
 func (m *Master) refreshTunnels(user, keyfile string) error {
-	m.tunnelsLock.Lock()
-	defer m.tunnelsLock.Unlock()
 	addrs, err := m.getNodeAddresses()
 	if err != nil {
 		return err

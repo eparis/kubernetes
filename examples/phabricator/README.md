@@ -1,3 +1,35 @@
+<!-- BEGIN MUNGE: UNVERSIONED_WARNING -->
+
+<!-- BEGIN STRIP_FOR_RELEASE -->
+
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+
+<h2>PLEASE NOTE: This document applies to the HEAD of the source tree</h2>
+
+If you are using a released version of Kubernetes, you should
+refer to the docs that go with that version.
+
+<strong>
+The latest 1.0.x release of this document can be found
+[here](http://releases.k8s.io/release-1.0/examples/phabricator/README.md).
+
+Documentation for other releases can be found at
+[releases.k8s.io](http://releases.k8s.io).
+</strong>
+--
+
+<!-- END STRIP_FOR_RELEASE -->
+
+<!-- END MUNGE: UNVERSIONED_WARNING -->
 ## Phabricator example
 
 This example shows how to build a simple multi-tier web application using Kubernetes and Docker.
@@ -6,7 +38,7 @@ The example combines a web frontend and an external service that provides MySQL 
 
 ### Step Zero: Prerequisites
 
-This example assumes that you have a basic understanding of kubernetes [services](../../docs/services.md) and that you have forked the repository and [turned up a Kubernetes cluster](../../docs/getting-started-guides):
+This example assumes that you have a basic understanding of kubernetes [services](../../docs/user-guide/services.md) and that you have forked the repository and [turned up a Kubernetes cluster](../../docs/getting-started-guides/):
 
 ```shell
 $ cd kubernetes
@@ -21,7 +53,7 @@ In the remaining part of this example we will assume that your instance is named
 
 ### Step Two: Turn up the phabricator
 
-To start Phabricator server use the file [`examples/phabricator/phabricator-controller.json`](phabricator-controller.json) which describes a [replication controller](../../docs/replication-controller.md) with a single [pod](../../docs/pods.md) running an Apache server with Phabricator PHP source:
+To start Phabricator server use the file [`examples/phabricator/phabricator-controller.json`](phabricator-controller.json) which describes a [replication controller](../../docs/user-guide/replication-controller.md) with a single [pod](../../docs/user-guide/pods.md) running an Apache server with Phabricator PHP source:
 
 ```js
 {
@@ -78,8 +110,8 @@ kubectl get pods
 You'll see a single phabricator pod. It will also display the machine that the pod is running on once it gets placed (may take up to thirty seconds):
 
 ```
-POD                           IP           CONTAINER(S)  IMAGE(S)                  HOST                                                      LABELS                                   STATUS
-phabricator-controller-02qp4  10.244.1.34  phabricator   fgrzadkowski/phabricator  kubernetes-minion-2.c.myproject.internal/130.211.141.151  name=phabricator
+NAME                           READY     STATUS    RESTARTS   AGE
+phabricator-controller-9vy68   1/1       Running   0          1m
 ```
 
 If you ssh to that machine, you can run `docker ps` to see the actual pod:
@@ -99,7 +131,7 @@ CONTAINER ID        IMAGE                             COMMAND     CREATED       
 If you read logs of the phabricator container you will notice the following error message:
 
 ```bash
-$ kubectl log phabricator-controller-02qp4
+$ kubectl logs phabricator-controller-02qp4
 [...]
 Raw MySQL Error: Attempt to connect to root@173.194.252.142 failed with error
 #2013: Lost connection to MySQL server at 'reading initial communication
@@ -158,7 +190,7 @@ $ kubectl create -f examples/phabricator/authenticator-controller.json
 
 ### Step Four: Turn up the phabricator service
 
-A Kubernetes 'service' is a named load balancer that proxies traffic to one or more containers. The services in a Kubernetes cluster are discoverable inside other containers via *environment variables*. Services find the containers to load balance based on pod labels.  These environment variables are typically referenced in application code, shell scripts, or other places where one node needs to talk to another in a distributed system.  You should catch up on [kubernetes services](http://docs.k8s.io/services.md) before proceeding.
+A Kubernetes 'service' is a named load balancer that proxies traffic to one or more containers. The services in a Kubernetes cluster are discoverable inside other containers via *environment variables*. Services find the containers to load balance based on pod labels.  These environment variables are typically referenced in application code, shell scripts, or other places where one node needs to talk to another in a distributed system.  You should catch up on [kubernetes services](../../docs/user-guide/services.md) before proceeding.
 
 The pod that you created in Step One has the label `name=phabricator`. The selector field of the service determines which pods will receive the traffic sent to the service. Since we are setting up a service for an external application we also need to request external static IP address (otherwise it will be assigned dynamically):
 
@@ -203,7 +235,7 @@ phabricator
 To play with the service itself, find the external IP of the load balancer:
 
 ```shell
-$ kubectl get services guestbook -o template --template='{{(index .status.loadBalancer.ingress 0).ip}}'
+$ kubectl get services phabricator -o template --template='{{(index .status.loadBalancer.ingress 0).ip}}{{"\n"}}'
 ```
 
 and then visit port 80 of that IP address.
@@ -223,4 +255,6 @@ $ cluster/kube-down.sh
 ```
 
 
+<!-- BEGIN MUNGE: GENERATED_ANALYTICS -->
 [![Analytics](https://kubernetes-site.appspot.com/UA-36037335-10/GitHub/examples/phabricator/README.md?pixel)]()
+<!-- END MUNGE: GENERATED_ANALYTICS -->

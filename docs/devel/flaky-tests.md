@@ -1,3 +1,35 @@
+<!-- BEGIN MUNGE: UNVERSIONED_WARNING -->
+
+<!-- BEGIN STRIP_FOR_RELEASE -->
+
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+
+<h2>PLEASE NOTE: This document applies to the HEAD of the source tree</h2>
+
+If you are using a released version of Kubernetes, you should
+refer to the docs that go with that version.
+
+<strong>
+The latest 1.0.x release of this document can be found
+[here](http://releases.k8s.io/release-1.0/docs/devel/flaky-tests.md).
+
+Documentation for other releases can be found at
+[releases.k8s.io](http://releases.k8s.io).
+</strong>
+--
+
+<!-- END STRIP_FOR_RELEASE -->
+
+<!-- END MUNGE: UNVERSIONED_WARNING -->
 # Hunting flaky tests in Kubernetes
 Sometimes unit tests are flaky.  This means that due to (usually) race conditions, they will occasionally fail, even though most of the time they pass.
 
@@ -10,6 +42,7 @@ _Note: these instructions are mildly hacky for now, as we get run once semantics
 There is a testing image ```brendanburns/flake``` up on the docker hub.  We will use this image to test our fix.
 
 Create a replication controller with the following config:
+
 ```yaml
 apiVersion: v1
 kind: ReplicationController
@@ -31,10 +64,11 @@ spec:
         - name: REPO_SPEC
           value: https://github.com/GoogleCloudPlatform/kubernetes
 ```
+
 Note that we omit the labels and the selector fields of the replication controller, because they will be populated from the labels field of the pod template by default.
 
 ```
-kubectl create -f controller.yaml
+kubectl create -f ./controller.yaml
 ```
 
 This will spin up 24 instances of the test.  They will run to completion, then exit, and the kubelet will restart them, accumulating more and more runs of the test.
@@ -62,4 +96,6 @@ If you do a final check for flakes with ```docker ps -a```, ignore tasks that ex
 Happy flake hunting!
 
 
+<!-- BEGIN MUNGE: GENERATED_ANALYTICS -->
 [![Analytics](https://kubernetes-site.appspot.com/UA-36037335-10/GitHub/docs/devel/flaky-tests.md?pixel)]()
+<!-- END MUNGE: GENERATED_ANALYTICS -->

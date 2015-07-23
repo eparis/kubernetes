@@ -1,10 +1,42 @@
+<!-- BEGIN MUNGE: UNVERSIONED_WARNING -->
+
+<!-- BEGIN STRIP_FOR_RELEASE -->
+
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+
+<h2>PLEASE NOTE: This document applies to the HEAD of the source tree</h2>
+
+If you are using a released version of Kubernetes, you should
+refer to the docs that go with that version.
+
+<strong>
+The latest 1.0.x release of this document can be found
+[here](http://releases.k8s.io/release-1.0/docs/getting-started-guides/coreos/coreos_multinode_cluster.md).
+
+Documentation for other releases can be found at
+[releases.k8s.io](http://releases.k8s.io).
+</strong>
+--
+
+<!-- END STRIP_FOR_RELEASE -->
+
+<!-- END MUNGE: UNVERSIONED_WARNING -->
 # CoreOS Multinode Cluster
 
 Use the [master.yaml](cloud-configs/master.yaml) and [node.yaml](cloud-configs/node.yaml) cloud-configs to provision a multi-node Kubernetes cluster.
 
-> **Attention**: This requires at least CoreOS version **[653.0.0][coreos653]**, as this was the first release to include etcd2.
+> **Attention**: This requires at least CoreOS version **[695.0.0][coreos695]**, which includes `etcd2`.
 
-[coreos653]: https://coreos.com/releases/#653.0.0
+[coreos695]: https://coreos.com/releases/#695.0.0
 
 ## Overview
 
@@ -59,9 +91,9 @@ aws ec2 run-instances \
 --user-data file://node.yaml
 ```
 
-### GCE
+### Google Compute Engine (GCE)
 
-*Attention:* Replace ```<gce_image_id>``` below for a [suitable version of CoreOS image for GCE](https://coreos.com/docs/running-coreos/cloud-providers/google-compute-engine/).
+*Attention:* Replace ```<gce_image_id>``` below for a [suitable version of CoreOS image for Google Compute Engine](https://coreos.com/docs/running-coreos/cloud-providers/google-compute-engine/).
 
 #### Provision the Master
 
@@ -136,4 +168,6 @@ hdiutil makehybrid -iso -joliet -joliet-volume-name "config-2" -joliet -o node.i
 Boot one or more the [vmware image](https://coreos.com/docs/running-coreos/platforms/vmware) using `node.iso` as a config drive.
 
 
+<!-- BEGIN MUNGE: GENERATED_ANALYTICS -->
 [![Analytics](https://kubernetes-site.appspot.com/UA-36037335-10/GitHub/docs/getting-started-guides/coreos/coreos_multinode_cluster.md?pixel)]()
+<!-- END MUNGE: GENERATED_ANALYTICS -->

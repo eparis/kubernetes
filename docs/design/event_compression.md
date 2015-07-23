@@ -1,3 +1,35 @@
+<!-- BEGIN MUNGE: UNVERSIONED_WARNING -->
+
+<!-- BEGIN STRIP_FOR_RELEASE -->
+
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+
+<h2>PLEASE NOTE: This document applies to the HEAD of the source tree</h2>
+
+If you are using a released version of Kubernetes, you should
+refer to the docs that go with that version.
+
+<strong>
+The latest 1.0.x release of this document can be found
+[here](http://releases.k8s.io/release-1.0/docs/design/event_compression.md).
+
+Documentation for other releases can be found at
+[releases.k8s.io](http://releases.k8s.io).
+</strong>
+--
+
+<!-- END STRIP_FOR_RELEASE -->
+
+<!-- END MUNGE: UNVERSIONED_WARNING -->
 # Kubernetes Event Compression
 
 This document captures the design of event compression.
@@ -13,7 +45,7 @@ Each binary that generates events (for example, ```kubelet```) should keep track
 Event compression should be best effort (not guaranteed). Meaning, in the worst case, ```n``` identical (minus timestamp) events may still result in ```n``` event entries.
 
 ## Design
-Instead of a single Timestamp, each event object [contains](https://github.com/GoogleCloudPlatform/kubernetes/blob/master/pkg/api/types.go#L1111) the following fields:
+Instead of a single Timestamp, each event object [contains](../../pkg/api/types.go#L1111) the following fields:
  * ```FirstTimestamp util.Time``` 
    * The date/time of the first occurrence of the event.
  * ```LastTimestamp util.Time```
@@ -25,7 +57,7 @@ Instead of a single Timestamp, each event object [contains](https://github.com/G
 
 Each binary that generates events:
  * Maintains a historical record of previously generated events:
-   * Implemented with ["Least Recently Used Cache"](https://github.com/golang/groupcache/blob/master/lru/lru.go) in [```pkg/client/record/events_cache.go```](https://github.com/GoogleCloudPlatform/kubernetes/tree/master/pkg/client/record/events_cache.go).
+   * Implemented with ["Least Recently Used Cache"](https://github.com/golang/groupcache/blob/master/lru/lru.go) in [```pkg/client/record/events_cache.go```](../../pkg/client/record/events_cache.go).
    * The key in the cache is generated from the event object minus timestamps/count/transient fields, specifically the following events fields are used to construct a unique key for an event:
      * ```event.Source.Component```
      * ```event.Source.Host```
@@ -37,7 +69,7 @@ Each binary that generates events:
      * ```event.Reason```
      * ```event.Message```
    * The LRU cache is capped at 4096 events. That means if a component (e.g. kubelet) runs for a long period of time and generates tons of unique events, the previously generated events cache will not grow unchecked in memory. Instead, after 4096 unique events are generated, the oldest events are evicted from the cache.
- * When an event is generated, the previously generated events cache is checked (see [```pkg/client/record/event.go```](https://github.com/GoogleCloudPlatform/kubernetes/blob/master/pkg/client/record/event.go)).
+ * When an event is generated, the previously generated events cache is checked (see [```pkg/client/record/event.go```](../../pkg/client/record/event.go)).
    * If the key for the new event matches the key for a previously generated event (meaning all of the above fields match between the new event and some previously generated event), then the event is considered to be a duplicate and the existing event entry is updated in etcd:
      * The new PUT (update) event API is called to update the existing event entry in etcd with the new last seen timestamp and count.
      * The event is also updated in the previously generated events cache with an incremented count, updated last seen timestamp, name, and new resource version (all required to issue a future event update).
@@ -52,6 +84,7 @@ Each binary that generates events:
 
 ## Example
 Sample kubectl output
+
 ```
 FIRSTSEEN                         LASTSEEN                          COUNT               NAME                                          KIND                SUBOBJECT                                REASON              SOURCE                                                  MESSAGE
 Thu, 12 Feb 2015 01:13:02 +0000   Thu, 12 Feb 2015 01:13:02 +0000   1                   kubernetes-minion-4.c.saad-dev-vms.internal   Minion                                                       starting            {kubelet kubernetes-minion-4.c.saad-dev-vms.internal}   Starting kubelet.
@@ -78,4 +111,6 @@ This demonstrates what would have been 20 separate entries (indicating schedulin
  * PR [#4444](https://github.com/GoogleCloudPlatform/kubernetes/pull/4444): Switch events history to use LRU cache instead of map
 
 
+<!-- BEGIN MUNGE: GENERATED_ANALYTICS -->
 [![Analytics](https://kubernetes-site.appspot.com/UA-36037335-10/GitHub/docs/design/event_compression.md?pixel)]()
+<!-- END MUNGE: GENERATED_ANALYTICS -->

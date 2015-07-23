@@ -35,7 +35,6 @@ SERVICE_CLUSTER_IP_RANGE: $(yaml-quote ${SERVICE_CLUSTER_IP_RANGE})
 KUBERNETES_MASTER_NAME: $(yaml-quote ${MASTER_NAME})
 ALLOCATE_NODE_CIDRS: $(yaml-quote ${ALLOCATE_NODE_CIDRS:-false})
 ENABLE_CLUSTER_MONITORING: $(yaml-quote ${ENABLE_CLUSTER_MONITORING:-none})
-ENABLE_NODE_MONITORING: $(yaml-quote ${ENABLE_NODE_MONITORING:-false})
 ENABLE_CLUSTER_LOGGING: $(yaml-quote ${ENABLE_CLUSTER_LOGGING:-false})
 ENABLE_NODE_LOGGING: $(yaml-quote ${ENABLE_NODE_LOGGING:-false})
 LOGGING_DESTINATION: $(yaml-quote ${LOGGING_DESTINATION:-})
@@ -73,7 +72,6 @@ EOF
 KUBERNETES_MASTER: "false"
 ZONE: $(yaml-quote ${ZONE})
 EXTRA_DOCKER_OPTS: $(yaml-quote ${EXTRA_DOCKER_OPTS:-})
-ENABLE_DOCKER_REGISTRY_CACHE: $(yaml-quote ${ENABLE_DOCKER_REGISTRY_CACHE:-false})
 KUBELET_CERT: $(yaml-quote ${KUBELET_CERT_BASE64:-})
 KUBELET_KEY: $(yaml-quote ${KUBELET_KEY_BASE64:-})
 EOF
@@ -107,7 +105,7 @@ function create-master-instance {
     --image "${MASTER_IMAGE}" \
     --tags "${MASTER_TAG}" \
     --network "${NETWORK}" \
-    --scopes "storage-ro,compute-rw" \
+    --scopes "storage-ro,compute-rw,logging-write" \
     --can-ip-forward \
     --metadata-from-file \
       "startup-script=${KUBE_ROOT}/cluster/gce/configure-vm.sh,kube-env=${KUBE_TEMP}/master-kube-env.yaml" \

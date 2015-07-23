@@ -1,4 +1,50 @@
-## Getting started with libvirt CoreOS
+<!-- BEGIN MUNGE: UNVERSIONED_WARNING -->
+
+<!-- BEGIN STRIP_FOR_RELEASE -->
+
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+
+<h2>PLEASE NOTE: This document applies to the HEAD of the source tree</h2>
+
+If you are using a released version of Kubernetes, you should
+refer to the docs that go with that version.
+
+<strong>
+The latest 1.0.x release of this document can be found
+[here](http://releases.k8s.io/release-1.0/docs/getting-started-guides/libvirt-coreos.md).
+
+Documentation for other releases can be found at
+[releases.k8s.io](http://releases.k8s.io).
+</strong>
+--
+
+<!-- END STRIP_FOR_RELEASE -->
+
+<!-- END MUNGE: UNVERSIONED_WARNING -->
+Getting started with libvirt CoreOS
+-----------------------------------
+
+**Table of Contents**
+
+- [Highlights](#highlights)
+- [Prerequisites](#prerequisites)
+- [Setup](#setup)
+- [Interacting with your Kubernetes cluster with the `kube-*` scripts.](#interacting-with-your-kubernetes-cluster-with-the-kube--scripts)
+- [Troubleshooting](#troubleshooting)
+    - [!!! Cannot find kubernetes-server-linux-amd64.tar.gz](#-cannot-find-kubernetes-server-linux-amd64targz)
+    - [Can't find virsh in PATH, please fix and retry.](#cant-find-virsh-in-path-please-fix-and-retry)
+    - [error: Failed to connect socket to '/var/run/libvirt/libvirt-sock': No such file or directory](#error-failed-to-connect-socket-to-varrunlibvirtlibvirt-sock-no-such-file-or-directory)
+    - [error: Failed to connect socket to '/var/run/libvirt/libvirt-sock': Permission denied](#error-failed-to-connect-socket-to-varrunlibvirtlibvirt-sock-permission-denied)
+    - [error: Out of memory initializing network (virsh net-create...)](#error-out-of-memory-initializing-network-virsh-net-create)
 
 ### Highlights
 
@@ -21,6 +67,7 @@
 #### ¹ Depending on your distribution, libvirt access may be denied by default or may require a password at each access.
 
 You can test it with the following command:
+
 ```
 virsh -c qemu:///system pool-list
 ```
@@ -81,7 +128,7 @@ setfacl -m g:kvm:--x ~
 
 ### Setup
 
-By default, the libvirt-coreos setup will create a single kubernetes master and 3 kubernetes minions. Because the VM drives use Copy-on-Write and because of memory ballooning and KSM, there is a lot of resource over-allocation.
+By default, the libvirt-coreos setup will create a single kubernetes master and 3 kubernetes nodes. Because the VM drives use Copy-on-Write and because of memory ballooning and KSM, there is a lot of resource over-allocation.
 
 To start your local cluster, open a shell and run:
 
@@ -94,7 +141,7 @@ cluster/kube-up.sh
 
 The `KUBERNETES_PROVIDER` environment variable tells all of the various cluster management scripts which variant to use.  If you forget to set this, the assumption is you are running on Google Compute Engine.
 
-The `NUM_MINIONS` environment variable may be set to specify the number of minions to start. If it is not set, the number of minions defaults to 3.
+The `NUM_MINIONS` environment variable may be set to specify the number of nodes to start. If it is not set, the number of nodes defaults to 3.
 
 The `KUBE_PUSH` environment variable may be set to specify which kubernetes binaries must be deployed on the cluster. Its possible values are:
 
@@ -127,14 +174,16 @@ The VMs are running [CoreOS](https://coreos.com/).
 Your ssh keys have already been pushed to the VM. (It looks for ~/.ssh/id_*.pub)
 The user to use to connect to the VM is `core`.
 The IP to connect to the master is 192.168.10.1.
-The IPs to connect to the minions are 192.168.10.2 and onwards.
+The IPs to connect to the nodes are 192.168.10.2 and onwards.
 
 Connect to `kubernetes_master`:
+
 ```
 ssh core@192.168.10.1
 ```
 
 Connect to `kubernetes_minion-01`:
+
 ```
 ssh core@192.168.10.2
 ```
@@ -147,7 +196,7 @@ All of the following commands assume you have set `KUBERNETES_PROVIDER` appropri
 export KUBERNETES_PROVIDER=libvirt-coreos
 ```
 
-Bring up a libvirt-CoreOS cluster of 5 minions
+Bring up a libvirt-CoreOS cluster of 5 nodes
 
 ```
 NUM_MINIONS=5 cluster/kube-up.sh
@@ -166,6 +215,7 @@ cluster/kube-push.sh
 ```
 
 Update the libvirt-CoreOS cluster with the locally built Kubernetes binaries produced by `make`:
+
 ```
 KUBE_PUSH=local cluster/kube-push.sh
 ```
@@ -254,4 +304,6 @@ usermod -a -G libvirtd $USER
 Ensure libvirtd has been restarted since ebtables was installed.
 
 
+<!-- BEGIN MUNGE: GENERATED_ANALYTICS -->
 [![Analytics](https://kubernetes-site.appspot.com/UA-36037335-10/GitHub/docs/getting-started-guides/libvirt-coreos.md?pixel)]()
+<!-- END MUNGE: GENERATED_ANALYTICS -->

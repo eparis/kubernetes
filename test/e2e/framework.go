@@ -18,6 +18,7 @@ package e2e
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/api"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/client"
@@ -85,6 +86,11 @@ func (f *Framework) afterEach() {
 		// you may or may not see the killing/deletion/cleanup events.
 	}
 
+	// Check whether all nodes are ready after the test.
+	if err := allNodesReady(f.Client, time.Minute); err != nil {
+		Failf("All nodes should be ready after test, %v", err)
+	}
+
 	By(fmt.Sprintf("Destroying namespace %q for this suite.", f.Namespace.Name))
 	if err := f.Client.Namespaces().Delete(f.Namespace.Name); err != nil {
 		Failf("Couldn't delete ns %q: %s", f.Namespace.Name, err)
@@ -99,9 +105,9 @@ func (f *Framework) WaitForPodRunning(podName string) error {
 	return waitForPodRunningInNamespace(f.Client, podName, f.Namespace.Name)
 }
 
-// Runs the given pod and verifies that its output matches the desired output.
-func (f *Framework) TestContainerOutput(scenarioName string, pod *api.Pod, expectedOutput []string) {
-	testContainerOutputInNamespace(scenarioName, f.Client, pod, expectedOutput, f.Namespace.Name)
+// Runs the given pod and verifies that the output of exact container matches the desired output.
+func (f *Framework) TestContainerOutput(scenarioName string, pod *api.Pod, containerIndex int, expectedOutput []string) {
+	testContainerOutputInNamespace(scenarioName, f.Client, pod, containerIndex, expectedOutput, f.Namespace.Name)
 }
 
 // WaitForAnEndpoint waits for at least one endpoint to become available in the

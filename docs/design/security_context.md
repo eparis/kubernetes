@@ -1,3 +1,35 @@
+<!-- BEGIN MUNGE: UNVERSIONED_WARNING -->
+
+<!-- BEGIN STRIP_FOR_RELEASE -->
+
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+
+<h2>PLEASE NOTE: This document applies to the HEAD of the source tree</h2>
+
+If you are using a released version of Kubernetes, you should
+refer to the docs that go with that version.
+
+<strong>
+The latest 1.0.x release of this document can be found
+[here](http://releases.k8s.io/release-1.0/docs/design/security_context.md).
+
+Documentation for other releases can be found at
+[releases.k8s.io](http://releases.k8s.io).
+</strong>
+--
+
+<!-- END STRIP_FOR_RELEASE -->
+
+<!-- END MUNGE: UNVERSIONED_WARNING -->
 # Security Contexts
 ## Abstract
 A security context is a set of constraints that are applied to a container in order to achieve the following goals (from [security design](security.md)):
@@ -32,7 +64,7 @@ Processes in pods will need to have consistent UID/GID/SELinux category labels i
 * The concept of a security context should not be tied to a particular security mechanism or platform 
   (ie. SELinux, AppArmor)
 * Applying a different security context to a scope (namespace or pod) requires a solution such as the one proposed for
-  [service accounts](./service_accounts.md).
+  [service accounts](service_accounts.md).
 
 ## Use Cases
 
@@ -147,6 +179,7 @@ type SELinuxOptions struct {
 	Level string
 }
 ```
+
 ### Admission
 
 It is up to an admission plugin to determine if the security context is acceptable or not.  At the
@@ -156,5 +189,6 @@ will be denied by default.  In the future the admission plugin will base this de
 configurable policies that reside within the [service account](https://github.com/GoogleCloudPlatform/kubernetes/pull/2297).
 
 
-
+<!-- BEGIN MUNGE: GENERATED_ANALYTICS -->
 [![Analytics](https://kubernetes-site.appspot.com/UA-36037335-10/GitHub/docs/design/security_context.md?pixel)]()
+<!-- END MUNGE: GENERATED_ANALYTICS -->

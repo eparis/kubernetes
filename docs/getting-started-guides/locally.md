@@ -1,4 +1,54 @@
-## Getting started locally
+<!-- BEGIN MUNGE: UNVERSIONED_WARNING -->
+
+<!-- BEGIN STRIP_FOR_RELEASE -->
+
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+
+<h2>PLEASE NOTE: This document applies to the HEAD of the source tree</h2>
+
+If you are using a released version of Kubernetes, you should
+refer to the docs that go with that version.
+
+<strong>
+The latest 1.0.x release of this document can be found
+[here](http://releases.k8s.io/release-1.0/docs/getting-started-guides/locally.md).
+
+Documentation for other releases can be found at
+[releases.k8s.io](http://releases.k8s.io).
+</strong>
+--
+
+<!-- END STRIP_FOR_RELEASE -->
+
+<!-- END MUNGE: UNVERSIONED_WARNING -->
+Getting started locally
+-----------------------
+
+**Table of Contents**
+
+- [Requirements](#requirements)
+    - [Linux](#linux)
+    - [Docker](#docker)
+    - [etcd](#etcd)
+    - [go](#go)
+- [Starting the cluster](#starting-the-cluster)
+- [Running a container](#running-a-container)
+- [Running a user defined pod](#running-a-user-defined-pod)
+- [Troubleshooting](#troubleshooting)
+    - [I cannot reach service IPs on the network.](#i-cannot-reach-service-ips-on-the-network)
+    - [I cannot create a replication controller with replica size greater than 1!  What gives?](#i-cannot-create-a-replication-controller-with-replica-size-greater-than-1--what-gives)
+    - [I changed Kubernetes code, how do I run it?](#i-changed-kubernetes-code-how-do-i-run-it)
+    - [kubectl claims to start a container but `get pods` and `docker ps` don't show it.](#kubectl-claims-to-start-a-container-but-get-pods-and-docker-ps-dont-show-it)
+    - [The pods fail to connect to the services by host names](#the-pods-fail-to-connect-to-the-services-by-host-names)
 
 ### Requirements
 
@@ -31,7 +81,7 @@ hack/local-up-cluster.sh
 ```
 
 This will build and start a lightweight local cluster, consisting of a master
-and a single minion. Type Control-C to shut it down.
+and a single node. Type Control-C to shut it down.
 
 You can use the cluster/kubectl.sh script to interact with the local cluster. hack/local-up-cluster.sh will
 print the commands to run to point kubectl at the local cluster.
@@ -67,14 +117,14 @@ cluster/kubectl.sh get replicationcontrollers
 
 ### Running a user defined pod
 
-Note the difference between a [container](http://docs.k8s.io/containers.md)
-and a [pod](http://docs.k8s.io/pods.md). Since you only asked for the former, kubernetes will create a wrapper pod for you.
+Note the difference between a [container](../user-guide/containers.md)
+and a [pod](../user-guide/pods.md). Since you only asked for the former, kubernetes will create a wrapper pod for you.
 However you cannot view the nginx start page on localhost. To verify that nginx is running you need to run `curl` within the docker container (try `docker exec`).
 
 You can control the specifications of a pod via a user defined manifest, and reach nginx through your browser on the port specified therein:
 
 ```
-cluster/kubectl.sh create -f examples/pod.yaml
+cluster/kubectl.sh create -f docs/user-guide/pod.yaml
 ```
 
 Congratulations!
@@ -95,7 +145,7 @@ change the service-cluster-ip-range flag to something else.
 
 #### I cannot create a replication controller with replica size greater than 1!  What gives?
 
-You are running a single minion setup.  This has the limitation of only supporting a single replica of a given pod.  If you are interested in running with larger replica sizes, we encourage you to try the local vagrant setup or one of the cloud providers.
+You are running a single node setup.  This has the limitation of only supporting a single replica of a given pod.  If you are interested in running with larger replica sizes, we encourage you to try the local vagrant setup or one of the cloud providers.
 
 #### I changed Kubernetes code, how do I run it?
 
@@ -110,7 +160,9 @@ hack/local-up-cluster.sh
 One or more of the kubernetes daemons might've crashed. Tail the logs of each in /tmp.
 
 #### The pods fail to connect to the services by host names
-The local-up-cluster.sh script doesn't start a DNS service. Similar situation can be found [here](https://github.com/GoogleCloudPlatform/kubernetes/issues/6667). You can start a manually. Related documents can be found [here](https://github.com/GoogleCloudPlatform/kubernetes/tree/master/cluster/addons/dns#how-do-i-configure-it)
+The local-up-cluster.sh script doesn't start a DNS service. Similar situation can be found [here](https://github.com/GoogleCloudPlatform/kubernetes/issues/6667). You can start a manually. Related documents can be found [here](../../cluster/addons/dns/#how-do-i-configure-it)
 
 
+<!-- BEGIN MUNGE: GENERATED_ANALYTICS -->
 [![Analytics](https://kubernetes-site.appspot.com/UA-36037335-10/GitHub/docs/getting-started-guides/locally.md?pixel)]()
+<!-- END MUNGE: GENERATED_ANALYTICS -->

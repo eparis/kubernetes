@@ -1,3 +1,35 @@
+<!-- BEGIN MUNGE: UNVERSIONED_WARNING -->
+
+<!-- BEGIN STRIP_FOR_RELEASE -->
+
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+
+<h2>PLEASE NOTE: This document applies to the HEAD of the source tree</h2>
+
+If you are using a released version of Kubernetes, you should
+refer to the docs that go with that version.
+
+<strong>
+The latest 1.0.x release of this document can be found
+[here](http://releases.k8s.io/release-1.0/examples/iscsi/README.md).
+
+Documentation for other releases can be found at
+[releases.k8s.io](http://releases.k8s.io).
+</strong>
+--
+
+<!-- END STRIP_FOR_RELEASE -->
+
+<!-- END MUNGE: UNVERSIONED_WARNING -->
 ## Step 1. Setting up iSCSI target and iSCSI initiator
 **Setup A.** On Fedora 21 nodes
 
@@ -10,7 +42,7 @@ then edit */etc/iscsi/initiatorname.iscsi* and */etc/iscsi/iscsid.conf* to match
 
 I mostly followed these [instructions](http://www.server-world.info/en/note?os=Fedora_21&p=iscsi) to setup iSCSI target. and these [instructions](http://www.server-world.info/en/note?os=Fedora_21&p=iscsi&f=2) to setup iSCSI initiator.
 
-**Setup B.** On Unbuntu 12.04 and Debian 7 nodes on GCE
+**Setup B.** On Unbuntu 12.04 and Debian 7 nodes on Google Compute Engine (GCE)
 
 GCE does not provide preconfigured Fedora 21 image, so I set up the iSCSI target on a preconfigured Ubuntu 12.04 image, mostly following these [instructions](http://www.server-world.info/en/note?os=Ubuntu_12.04&p=iscsi). My Kubernetes cluster on GCE was running Debian 7 images, so I followed these [instructions](http://www.server-world.info/en/note?os=Debian_7.0&p=iscsi&f=2) to set up the iSCSI initiator.
 
@@ -30,7 +62,7 @@ mkfs.ext4 /dev/<name of device>
 Once your pod is created, run it on the Kubernetes master:
 
 ```console
-kubectl create -f your_new_pod.json
+kubectl create -f ./your_new_pod.json
 ```
 
 Here is my command and output:
@@ -38,10 +70,8 @@ Here is my command and output:
 ```console
 # kubectl create -f examples/iscsi/iscsi.json
 # kubectl get pods
-POD       IP            CONTAINER(S)   IMAGE(S)           HOST                                    LABELS    STATUS    CREATED         MESSAGE
-iscsipd   10.244.3.14                                     kubernetes-minion-bz1p/104.154.61.231   <none>    Running   About an hour   
-                        iscsipd-rw     kubernetes/pause                                                     Running   About an hour   
-                        iscsipd-ro     kubernetes/pause                                                     Running   About an hour   
+NAME      READY     STATUS    RESTARTS   AGE
+iscsipd   2/2       RUNNING   0           2m
 ```
 
 On the Kubernetes node, I got these in mount output
@@ -55,6 +85,7 @@ On the Kubernetes node, I got these in mount output
 ```
 
 If you ssh to that machine, you can run `docker ps` to see the actual pod.
+
 ```console
 # docker ps
 CONTAINER ID        IMAGE                                                COMMAND                CREATED             STATUS              PORTS               NAMES
@@ -63,10 +94,13 @@ cc051196e7af        kubernetes/pause:latest                              "/pause
 ```
 
 Run *docker inspect* and I found the Containers mounted the host directory into the their */mnt/iscsipd* directory.
+
 ```console 
 # docker inspect --format '{{index .Volumes "/mnt/iscsipd"}}' cc051196e7af
 /var/lib/kubelet/pods/75e0af2b-f8e8-11e4-9ae7-42010af01964/volumes/kubernetes.io~iscsi/iscsipd-rw
 ```
 
 
+<!-- BEGIN MUNGE: GENERATED_ANALYTICS -->
 [![Analytics](https://kubernetes-site.appspot.com/UA-36037335-10/GitHub/examples/iscsi/README.md?pixel)]()
+<!-- END MUNGE: GENERATED_ANALYTICS -->

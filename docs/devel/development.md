@@ -1,3 +1,35 @@
+<!-- BEGIN MUNGE: UNVERSIONED_WARNING -->
+
+<!-- BEGIN STRIP_FOR_RELEASE -->
+
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+
+<h2>PLEASE NOTE: This document applies to the HEAD of the source tree</h2>
+
+If you are using a released version of Kubernetes, you should
+refer to the docs that go with that version.
+
+<strong>
+The latest 1.0.x release of this document can be found
+[here](http://releases.k8s.io/release-1.0/docs/devel/development.md).
+
+Documentation for other releases can be found at
+[releases.k8s.io](http://releases.k8s.io).
+</strong>
+--
+
+<!-- END STRIP_FOR_RELEASE -->
+
+<!-- END MUNGE: UNVERSIONED_WARNING -->
 # Development Guide
 
 # Releases and Official Builds
@@ -77,6 +109,7 @@ source control system).  Use ```apt-get install mercurial``` or ```yum install m
 directly from mercurial.
 
 2) Create a new GOPATH for your tools and install godep:
+
 ```
 export GOPATH=$HOME/go-tools
 mkdir -p $GOPATH
@@ -84,6 +117,7 @@ go get github.com/tools/godep
 ```
 
 3) Add $GOPATH/bin to your path. Typically you'd add this to your ~/.profile:
+
 ```
 export GOPATH=$HOME/go-tools
 export PATH=$PATH:$GOPATH/bin
@@ -93,6 +127,7 @@ export PATH=$PATH:$GOPATH/bin
 Here's a quick walkthrough of one way to use godeps to add or update a Kubernetes dependency into Godeps/_workspace. For more details, please see the instructions in [godep's documentation](https://github.com/tools/godep).
 
 1) Devote a directory to this endeavor:
+
 ```
 export KPATH=$HOME/code/kubernetes
 mkdir -p $KPATH/src/github.com/GoogleCloudPlatform/kubernetes
@@ -102,6 +137,7 @@ git clone https://path/to/your/fork .
 ```
 
 2) Set up your GOPATH.
+
 ```
 # Option A: this will let your builds see packages that exist elsewhere on your system.
 export GOPATH=$KPATH:$GOPATH
@@ -111,12 +147,14 @@ export GOPATH=$KPATH
 ```
 
 3) Populate your new GOPATH.
+
 ```
 cd $KPATH/src/github.com/GoogleCloudPlatform/kubernetes
 godep restore
 ```
 
 4) Next, you can either add a new dependency or update an existing one.
+
 ```
 # To add a new dependency, do:
 cd $KPATH/src/github.com/GoogleCloudPlatform/kubernetes
@@ -186,6 +224,7 @@ KUBE_COVER=y hack/test-go.sh
 At the end of the run, an the HTML report will be generated with the path printed to stdout.
 
 To run tests and collect coverage in only one package, pass its relative path under the `kubernetes` directory as an argument, for example:
+
 ```
 cd kubernetes
 KUBE_COVER=y hack/test-go.sh pkg/kubectl
@@ -198,6 +237,7 @@ Coverage results for the project can also be viewed on [Coveralls](https://cover
 ## Integration tests
 
 You need an [etcd](https://github.com/coreos/etcd/releases/tag/v2.0.0) in your path, please make sure it is installed and in your ``$PATH``.
+
 ```
 cd kubernetes
 hack/test-integration.sh
@@ -205,13 +245,15 @@ hack/test-integration.sh
 
 ## End-to-End tests
 
-You can run an end-to-end test which will bring up a master and two minions, perform some tests, and then tear everything down. Make sure you have followed the getting started steps for your chosen cloud platform (which might involve changing the `KUBERNETES_PROVIDER` environment variable to something other than "gce".
+You can run an end-to-end test which will bring up a master and two nodes, perform some tests, and then tear everything down. Make sure you have followed the getting started steps for your chosen cloud platform (which might involve changing the `KUBERNETES_PROVIDER` environment variable to something other than "gce".
+
 ```
 cd kubernetes
 hack/e2e-test.sh
 ```
 
 Pressing control-C should result in an orderly shutdown but if something goes wrong and you still have some VMs running you can force a cleanup with this command:
+
 ```
 go run hack/e2e.go --down
 ```
@@ -249,6 +291,7 @@ hack/ginkgo-e2e.sh --ginkgo.focus=Pods.*env
 ```
 
 ### Combining flags
+
 ```sh
 # Flags can be combined, and their actions will take place in this order:
 # -build, -push|-up|-pushup, -test|-tests=..., -down
@@ -267,8 +310,8 @@ go run hack/e2e.go -v -ctl='delete pod foobar'
 
 ## Conformance testing
 End-to-end testing, as described above, is for [development
-distributions](../../docs/devel/writing-a-getting-started-guide.md).  A conformance test is used on
-a [versioned distro](../../docs/devel/writing-a-getting-started-guide.md).
+distributions](writing-a-getting-started-guide.md).  A conformance test is used on
+a [versioned distro](writing-a-getting-started-guide.md).
 
 The conformance test runs a subset of the e2e-tests against a manually-created cluster.  It does not
 require support for up/push/down and other operations.  To run a conformance test, you need to know the
@@ -286,4 +329,6 @@ hack/run-gendocs.sh
 ```
 
 
+<!-- BEGIN MUNGE: GENERATED_ANALYTICS -->
 [![Analytics](https://kubernetes-site.appspot.com/UA-36037335-10/GitHub/docs/devel/development.md?pixel)]()
+<!-- END MUNGE: GENERATED_ANALYTICS -->

@@ -131,7 +131,8 @@ function create-provision-scripts {
     echo "SERVICE_CLUSTER_IP_RANGE='${SERVICE_CLUSTER_IP_RANGE}'"
     echo "MASTER_USER='${MASTER_USER}'"
     echo "MASTER_PASSWD='${MASTER_PASSWD}'"
-    echo "ENABLE_NODE_MONITORING='${ENABLE_NODE_MONITORING:-false}'"
+    echo "KUBE_USER='${KUBE_USER}'"
+    echo "KUBE_PASSWORD='${KUBE_PASSWORD}'"
     echo "ENABLE_NODE_LOGGING='${ENABLE_NODE_LOGGING:-false}'"
     echo "LOGGING_DESTINATION='${LOGGING_DESTINATION:-}'"
     echo "ENABLE_CLUSTER_DNS='${ENABLE_CLUSTER_DNS:-false}'"
@@ -144,6 +145,7 @@ function create-provision-scripts {
     echo "VAGRANT_DEFAULT_PROVIDER='${VAGRANT_DEFAULT_PROVIDER:-}'"
     echo "KUBELET_TOKEN='${KUBELET_TOKEN:-}'"
     echo "KUBE_PROXY_TOKEN='${KUBE_PROXY_TOKEN:-}'"
+    echo "MASTER_EXTRA_SANS='${MASTER_EXTRA_SANS:-}'"
     awk '!/^#/' "${KUBE_ROOT}/cluster/vagrant/provision-network.sh"
     awk '!/^#/' "${KUBE_ROOT}/cluster/vagrant/provision-master.sh"
   ) > "${KUBE_TEMP}/master-start.sh"
@@ -168,6 +170,7 @@ function create-provision-scripts {
       echo "VAGRANT_DEFAULT_PROVIDER='${VAGRANT_DEFAULT_PROVIDER:-}'"
       echo "KUBELET_TOKEN='${KUBELET_TOKEN:-}'"
       echo "KUBE_PROXY_TOKEN='${KUBE_PROXY_TOKEN:-}'"
+      echo "MASTER_EXTRA_SANS='${MASTER_EXTRA_SANS:-}'"
       awk '!/^#/' "${KUBE_ROOT}/cluster/vagrant/provision-network.sh"
       awk '!/^#/' "${KUBE_ROOT}/cluster/vagrant/provision-minion.sh"
     ) > "${KUBE_TEMP}/minion-start-${i}.sh"
@@ -186,7 +189,7 @@ function verify-cluster {
   # verify master has all required daemons
   echo "Validating master"
   local machine="master"
-  local -a required_daemon=("salt-master" "salt-minion" "nginx" "kubelet")
+  local -a required_daemon=("salt-master" "salt-minion" "kubelet")
   local validated="1"
   until [[ "$validated" == "0" ]]; do
     validated="0"
@@ -227,7 +230,7 @@ function verify-cluster {
     local count="0"
     until [[ "$count" == "1" ]]; do
       local minions
-      minions=$("${KUBE_ROOT}/cluster/kubectl.sh" get nodes -o template -t '{{range.items}}{{.metadata.name}}:{{end}}' --api-version=v1beta3)
+      minions=$("${KUBE_ROOT}/cluster/kubectl.sh" get nodes -o template -t '{{range.items}}{{.metadata.name}}:{{end}}' --api-version=v1)
       count=$(echo $minions | grep -c "${MINION_IPS[i]}") || {
         printf "."
         sleep 2

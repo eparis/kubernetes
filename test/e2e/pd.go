@@ -18,10 +18,12 @@ package e2e
 
 import (
 	"fmt"
+	math_rand "math/rand"
 	"os/exec"
 	"strings"
 	"time"
 
+	"bytes"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/api"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/api/latest"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/client"
@@ -39,7 +41,6 @@ var _ = Describe("Pod Disks", func() {
 		podClient client.PodInterface
 		host0Name string
 		host1Name string
-		numHosts  int
 	)
 
 	BeforeEach(func() {
@@ -47,29 +48,21 @@ var _ = Describe("Pod Disks", func() {
 		c, err = loadClient()
 		expectNoError(err)
 
+		SkipUnlessNodeCountIsAtLeast(2)
+
 		podClient = c.Pods(api.NamespaceDefault)
 
 		nodes, err := c.Nodes().List(labels.Everything(), fields.Everything())
 		expectNoError(err, "Failed to list nodes for e2e cluster.")
 
-		numHosts = len(nodes.Items)
+		Expect(len(nodes.Items)).To(BeNumerically(">=", 2), "Requires at least 2 nodes")
 
-		if len(nodes.Items) >= 2 {
-			host1Name = nodes.Items[1].ObjectMeta.Name
-		}
-		if len(nodes.Items) >= 1 {
-			host0Name = nodes.Items[0].ObjectMeta.Name
-		}
+		host0Name = nodes.Items[0].ObjectMeta.Name
+		host1Name = nodes.Items[1].ObjectMeta.Name
 	})
 
 	It("should schedule a pod w/ a RW PD, remove it, then schedule it on another host", func() {
-		if !providerIs("gce", "aws") {
-			By(fmt.Sprintf("Skipping PD test, which is only supported for providers gce & aws (not %s)",
-				testContext.Provider))
-			return
-		}
-
-		Expect(numHosts >= 2).To(BeTrue(), "At least 2 nodes required")
+		SkipUnlessProviderIs("gce", "gke", "aws")
 
 		By("creating PD")
 		diskName, err := createPD()
@@ -95,6 +88,12 @@ var _ = Describe("Pod Disks", func() {
 
 		expectNoError(waitForPodRunning(c, host0Pod.Name))
 
+		testFile := "/testpd/tracker"
+		testFileContents := fmt.Sprintf("%v", math_rand.Int())
+
+		expectNoError(writeFileOnPod(c, host0Pod.Name, testFile, testFileContents))
+		Logf("Wrote value: %v", testFileContents)
+
 		By("deleting host0Pod")
 		expectNoError(podClient.Delete(host0Pod.Name, nil), "Failed to delete host0Pod")
 
@@ -103,6 +102,12 @@ var _ = Describe("Pod Disks", func() {
 		expectNoError(err, "Failed to create host1Pod")
 
 		expectNoError(waitForPodRunning(c, host1Pod.Name))
+
+		v, err := readFileOnPod(c, host1Pod.Name, testFile)
+		expectNoError(err)
+		Logf("Read value: %v", v)
+
+		Expect(strings.TrimSpace(v)).To(Equal(strings.TrimSpace(testFileContents)))
 
 		By("deleting host1Pod")
 		expectNoError(podClient.Delete(host1Pod.Name, nil), "Failed to delete host1Pod")
@@ -122,13 +127,7 @@ var _ = Describe("Pod Disks", func() {
 	})
 
 	It("should schedule a pod w/ a readonly PD on two hosts, then remove both.", func() {
-		if testContext.Provider != "gce" {
-			By(fmt.Sprintf("Skipping PD test, which is only supported for provider gce (not %s)",
-				testContext.Provider))
-			return
-		}
-
-		Expect(numHosts >= 2).To(BeTrue(), "At least 2 nodes required")
+		SkipUnlessProviderIs("gce", "gke")
 
 		By("creating PD")
 		diskName, err := createPD()
@@ -181,14 +180,57 @@ var _ = Describe("Pod Disks", func() {
 				Logf("Couldn't delete PD. Sleeping 5 seconds")
 				continue
 			}
+			Logf("Successfully deleted PD %q", diskName)
 			break
 		}
 		expectNoError(err, "Error deleting PD")
 	})
 })
 
+func kubectlExec(namespace string, podName string, args ...string) ([]byte, []byte, error) {
+	var stdout, stderr bytes.Buffer
+	cmdArgs := []string{"exec", fmt.Sprintf("--namespace=%v", namespace), podName}
+	cmdArgs = append(cmdArgs, args...)
+
+	cmd := kubectlCmd(cmdArgs...)
+	cmd.Stdout, cmd.Stderr = &stdout, &stderr
+
+	Logf("Running '%s %s'", cmd.Path, strings.Join(cmd.Args, " "))
+	err := cmd.Run()
+	return stdout.Bytes(), stderr.Bytes(), err
+}
+
+// Write a file using kubectl exec echo <contents> > <path>
+// Because of the primitive technique we're using here, we only allow ASCII alphanumeric characters
+func writeFileOnPod(c *client.Client, podName string, path string, contents string) error {
+	By("writing a file in the container")
+	allowedCharacters := "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	for _, c := range contents {
+		if !strings.ContainsRune(allowedCharacters, c) {
+			return fmt.Errorf("Unsupported character in string to write: %v", c)
+		}
+	}
+	command := fmt.Sprintf("echo '%s' > '%s'", contents, path)
+	stdout, stderr, err := kubectlExec(api.NamespaceDefault, podName, "--", "/bin/sh", "-c", command)
+	if err != nil {
+		Logf("error running kubectl exec to write file: %v\nstdout=%v\nstderr=%v)", err, string(stdout), string(stderr))
+	}
+	return err
+}
+
+// Read a file using kubectl exec cat <path>
+func readFileOnPod(c *client.Client, podName string, path string) (string, error) {
+	By("reading a file in the container")
+
+	stdout, stderr, err := kubectlExec(api.NamespaceDefault, podName, "--", "cat", path)
+	if err != nil {
+		Logf("error running kubectl exec to read file: %v\nstdout=%v\nstderr=%v)", err, string(stdout), string(stderr))
+	}
+	return string(stdout), err
+}
+
 func createPD() (string, error) {
-	if testContext.Provider == "gce" {
+	if testContext.Provider == "gce" || testContext.Provider == "gke" {
 		pdName := fmt.Sprintf("%s-%s", testContext.prefix, string(util.NewUUID()))
 
 		zone := testContext.CloudConfig.Zone
@@ -210,7 +252,7 @@ func createPD() (string, error) {
 }
 
 func deletePD(pdName string) error {
-	if testContext.Provider == "gce" {
+	if testContext.Provider == "gce" || testContext.Provider == "gke" {
 		zone := testContext.CloudConfig.Zone
 
 		// TODO: make this hit the compute API directly.
@@ -230,7 +272,7 @@ func deletePD(pdName string) error {
 }
 
 func detachPD(hostName, pdName string) error {
-	if testContext.Provider == "gce" {
+	if testContext.Provider == "gce" || testContext.Provider == "gke" {
 		instanceName := strings.Split(hostName, ".")[0]
 
 		zone := testContext.CloudConfig.Zone
@@ -258,8 +300,9 @@ func testPDPod(diskName, targetHost string, readOnly bool) *api.Pod {
 		Spec: api.PodSpec{
 			Containers: []api.Container{
 				{
-					Name:  "testpd",
-					Image: "gcr.io/google_containers/pause",
+					Name:    "testpd",
+					Image:   "gcr.io/google_containers/busybox",
+					Command: []string{"sleep", "600"},
 					VolumeMounts: []api.VolumeMount{
 						{
 							Name:      "testpd",
@@ -272,7 +315,7 @@ func testPDPod(diskName, targetHost string, readOnly bool) *api.Pod {
 		},
 	}
 
-	if testContext.Provider == "gce" {
+	if testContext.Provider == "gce" || testContext.Provider == "gke" {
 		pod.Spec.Volumes = []api.Volume{
 			{
 				Name: "testpd",

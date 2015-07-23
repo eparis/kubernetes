@@ -18,11 +18,14 @@ package e2e
 
 import (
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/GoogleCloudPlatform/kubernetes/pkg/api"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/client"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/kubelet/metrics"
 	"github.com/GoogleCloudPlatform/kubernetes/pkg/master/ports"
@@ -49,14 +52,9 @@ func (a KubeletMetricByLatency) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a KubeletMetricByLatency) Less(i, j int) bool { return a[i].Latency > a[j].Latency }
 
 // ReadKubeletMetrics reads metrics from the kubelet server running on the given node
-func ReadKubeletMetrics(c *client.Client, nodeName string) ([]KubeletMetric, error) {
-	body, err := getKubeletMetrics(c, nodeName)
-	if err != nil {
-		return nil, err
-	}
-
+func ParseKubeletMetrics(metricsBlob string) ([]KubeletMetric, error) {
 	metric := make([]KubeletMetric, 0)
-	for _, line := range strings.Split(string(body), "\n") {
+	for _, line := range strings.Split(metricsBlob, "\n") {
 
 		// A kubelet stats line starts with the KubeletSubsystem marker, followed by a stat name, followed by fields
 		// that vary by stat described on a case by case basis below.
@@ -95,6 +93,10 @@ func ReadKubeletMetrics(c *client.Client, nodeName string) ([]KubeletMetric, err
 			operation = keyElems[1]
 			rawQuantile = keyElems[5]
 			break
+
+		case metrics.PodWorkerStartLatencyKey:
+			// eg: kubelet_pod_worker_start_latency_microseconds{quantile="0.99"} 12
+			fallthrough
 
 		case metrics.SyncPodsLatencyKey:
 			// eg:  kubelet_sync_pods_latency_microseconds{quantile="0.5"} 9949
@@ -143,13 +145,24 @@ func ReadKubeletMetrics(c *client.Client, nodeName string) ([]KubeletMetric, err
 
 // HighLatencyKubeletOperations logs and counts the high latency metrics exported by the kubelet server via /metrics.
 func HighLatencyKubeletOperations(c *client.Client, threshold time.Duration, nodeName string) ([]KubeletMetric, error) {
-	metric, err := ReadKubeletMetrics(c, nodeName)
+	var metricsBlob string
+	var err error
+	// If we haven't been given a client try scraping the nodename directly for a /metrics endpoint.
+	if c == nil {
+		metricsBlob, err = getKubeletMetricsThroughNode(nodeName)
+	} else {
+		metricsBlob, err = getKubeletMetricsThroughProxy(c, nodeName)
+	}
+	if err != nil {
+		return []KubeletMetric{}, err
+	}
+	metric, err := ParseKubeletMetrics(metricsBlob)
 	if err != nil {
 		return []KubeletMetric{}, err
 	}
 	sort.Sort(KubeletMetricByLatency(metric))
 	var badMetrics []KubeletMetric
-	Logf("Latency metrics for node %v", nodeName)
+	Logf("\nLatency metrics for node %v", nodeName)
 	for _, m := range metric {
 		if m.Latency > threshold {
 			badMetrics = append(badMetrics, m)
@@ -159,17 +172,47 @@ func HighLatencyKubeletOperations(c *client.Client, threshold time.Duration, nod
 	return badMetrics, nil
 }
 
-// Retrieve metrics from the kubelet server of the given node.
-func getKubeletMetrics(c *client.Client, node string) (string, error) {
-	metric, err := c.Get().
+// Performs a get on a node proxy endpoint given the nodename and rest client.
+func nodeProxyRequest(c *client.Client, node, endpoint string) client.Result {
+	return c.Get().
 		Prefix("proxy").
 		Resource("nodes").
 		Name(fmt.Sprintf("%v:%v", node, ports.KubeletPort)).
-		Suffix("metrics").
-		Do().
-		Raw()
+		Suffix(endpoint).
+		Do()
+}
+
+// Retrieve metrics from the kubelet server of the given node.
+func getKubeletMetricsThroughProxy(c *client.Client, node string) (string, error) {
+	metric, err := nodeProxyRequest(c, node, "metrics").Raw()
 	if err != nil {
 		return "", err
 	}
 	return string(metric), nil
+}
+
+// Retrieve metrics from the kubelet on the given node using a simple GET over http.
+// Currently only used in integration tests.
+func getKubeletMetricsThroughNode(nodeName string) (string, error) {
+	resp, err := http.Get(fmt.Sprintf("http://%v/metrics", nodeName))
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	return string(body), nil
+}
+
+// GetKubeletPods retrieves the list of running pods on the kubelet. The pods
+// includes necessary information (e.g., UID, name, namespace for
+// pods/containers), but do not contain the full spec.
+func GetKubeletPods(c *client.Client, node string) (*api.PodList, error) {
+	result := &api.PodList{}
+	if err := nodeProxyRequest(c, node, "runningpods").Into(result); err != nil {
+		return &api.PodList{}, err
+	}
+	return result, nil
 }

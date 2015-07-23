@@ -1,17 +1,64 @@
-## Getting started with Juju
+<!-- BEGIN MUNGE: UNVERSIONED_WARNING -->
+
+<!-- BEGIN STRIP_FOR_RELEASE -->
+
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+
+<h2>PLEASE NOTE: This document applies to the HEAD of the source tree</h2>
+
+If you are using a released version of Kubernetes, you should
+refer to the docs that go with that version.
+
+<strong>
+The latest 1.0.x release of this document can be found
+[here](http://releases.k8s.io/release-1.0/docs/getting-started-guides/juju.md).
+
+Documentation for other releases can be found at
+[releases.k8s.io](http://releases.k8s.io).
+</strong>
+--
+
+<!-- END STRIP_FOR_RELEASE -->
+
+<!-- END MUNGE: UNVERSIONED_WARNING -->
+Getting started with Juju
+-------------------------
 
 Juju handles provisioning machines and deploying complex systems to a
 wide number of clouds, supporting service orchestration once the bundle of
 services has been deployed.
 
+**Table of Contents**
 
-### Prerequisites
+- [Prerequisites](#prerequisites)
+   - [On Ubuntu](#on-ubuntu)
+   - [With Docker](#with-docker)
+- [Launch Kubernetes cluster](#launch-kubernetes-cluster)
+- [Exploring the cluster](#exploring-the-cluster)
+- [Run some containers!](#run-some-containers)
+- [Scale out cluster](#scale-out-cluster)
+- [Launch the "k8petstore" example app](#launch-the-k8petstore-example-app)
+- [Tear down cluster](#tear-down-cluster)
+- [More Info](#more-info)
+    - [Cloud compatibility](#cloud-compatibility)
+
+
+## Prerequisites
 
 > Note: If you're running kube-up, on ubuntu - all of the dependencies
 > will be handled for you. You may safely skip to the section:
 > [Launch Kubernetes Cluster](#launch-kubernetes-cluster)
 
-#### On Ubuntu
+### On Ubuntu
 
 [Install the Juju client](https://juju.ubuntu.com/install) on your
 local ubuntu system:
@@ -21,7 +68,7 @@ local ubuntu system:
     sudo apt-get install juju-core juju-quickstart
 
 
-#### With Docker
+### With Docker
 
 If you are not using ubuntu or prefer the isolation of docker, you may
 run the following:
@@ -43,6 +90,8 @@ interface.
 
 ## Launch Kubernetes cluster
 
+Kubernetes releases can be downloaded from [this page](https://github.com/GoogleCloudPlatform/kubernetes/releases).
+
 You will need to have the Kubernetes tools compiled before launching the cluster
 
     make all WHAT=cmd/kubectl
@@ -54,7 +103,7 @@ the required predependencies to get started with Juju, additionally it will
 launch a curses based configuration utility allowing you to select your cloud
 provider and enter the proper access credentials.
 
-Next it will deploy the kubernetes master, etcd, 2 minions with flannel based
+Next it will deploy the kubernetes master, etcd, 2 nodes with flannel based
 Software Defined Networking.
 
 
@@ -87,7 +136,7 @@ KUBERNETES_MASTER to point at the ip of `kubernetes-master/0`.
 No pods will be available before starting a container:
 
     kubectl get pods
-    POD  CONTAINER(S)   IMAGE(S)   HOST  LABELS  STATUS
+    NAME             READY     STATUS    RESTARTS   AGE
 
     kubectl get replicationcontrollers
     CONTROLLER  CONTAINER(S)  IMAGE(S)  SELECTOR  REPLICAS
@@ -128,7 +177,7 @@ Get info on the pod:
     kubectl get pods
 
 
-To test the hello app, we need to locate which minion is hosting
+To test the hello app, we need to locate which node is hosting
 the container. Better tooling for using juju to introspect container
 is in the works but we can use `juju run` and `juju status` to find
 our hello app.
@@ -157,18 +206,18 @@ Finally delete the pod:
 
 ## Scale out cluster
 
-We can add minion units like so:
+We can add node units like so:
 
     juju add-unit docker # creates unit docker/2, kubernetes/2, docker-flannel/2
 
 ## Launch the "k8petstore" example app
 
-The [k8petstore example](https://github.com/GoogleCloudPlatform/kubernetes/blob/master/examples/k8petstore) is available as a
+The [k8petstore example](../../examples/k8petstore/) is available as a
 [juju action](https://jujucharms.com/docs/devel/actions).
 
     juju action do kubernetes-master/0
 
-Note: this example includes curl statements to exercise the app, which automatically generates "petstore" transactions written to redis, and allows you to visualize the throughput in your browswer.
+Note: this example includes curl statements to exercise the app, which automatically generates "petstore" transactions written to redis, and allows you to visualize the throughput in your browser.
 
 ## Tear down cluster
 
@@ -184,7 +233,7 @@ Kubernetes Bundle on Github
 
  - [Bundle Repository](https://github.com/whitmo/bundle-kubernetes)
    * [Kubernetes master charm](https://github.com/whitmo/charm-kubernetes-master)
-   * [Kubernetes mininion charm](https://github.com/whitmo/charm-kubernetes)
+   * [Kubernetes node charm](https://github.com/whitmo/charm-kubernetes)
  - [Bundle Documentation](http://whitmo.github.io/bundle-kubernetes)
  - [More about Juju](https://juju.ubuntu.com)
 
@@ -218,4 +267,6 @@ MAAS (bare metal) | TBD
 GCE               | TBD
 
 
+<!-- BEGIN MUNGE: GENERATED_ANALYTICS -->
 [![Analytics](https://kubernetes-site.appspot.com/UA-36037335-10/GitHub/docs/getting-started-guides/juju.md?pixel)]()
+<!-- END MUNGE: GENERATED_ANALYTICS -->

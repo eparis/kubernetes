@@ -416,13 +416,15 @@ func startServiceAccountTestServer(t *testing.T) (*client.Client, client.Config,
 		EnableUISupport:   false,
 		EnableIndex:       true,
 		APIPrefix:         "/api",
-		Authenticator:     authenticator,
-		Authorizer:        authorizer,
-		AdmissionControl:  serviceAccountAdmission,
+		// Enable v1beta3 if we are testing that version.
+		EnableV1Beta3:    testapi.Version() == "v1beta3",
+		Authenticator:    authenticator,
+		Authorizer:       authorizer,
+		AdmissionControl: serviceAccountAdmission,
 	})
 
 	// Start the service account and service account token controllers
-	tokenController := serviceaccount.NewTokensController(rootClient, serviceaccount.DefaultTokenControllerOptions(serviceaccount.JWTTokenGenerator(serviceAccountKey)))
+	tokenController := serviceaccount.NewTokensController(rootClient, serviceaccount.TokensControllerOptions{TokenGenerator: serviceaccount.JWTTokenGenerator(serviceAccountKey)})
 	tokenController.Run()
 	serviceAccountController := serviceaccount.NewServiceAccountsController(rootClient, serviceaccount.DefaultServiceAccountsControllerOptions())
 	serviceAccountController.Run()

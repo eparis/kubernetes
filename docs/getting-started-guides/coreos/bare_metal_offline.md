@@ -1,6 +1,60 @@
-# Bare Metal CoreOS with Kubernetes (OFFLINE)
+<!-- BEGIN MUNGE: UNVERSIONED_WARNING -->
+
+<!-- BEGIN STRIP_FOR_RELEASE -->
+
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+
+<h2>PLEASE NOTE: This document applies to the HEAD of the source tree</h2>
+
+If you are using a released version of Kubernetes, you should
+refer to the docs that go with that version.
+
+<strong>
+The latest 1.0.x release of this document can be found
+[here](http://releases.k8s.io/release-1.0/docs/getting-started-guides/coreos/bare_metal_offline.md).
+
+Documentation for other releases can be found at
+[releases.k8s.io](http://releases.k8s.io).
+</strong>
+--
+
+<!-- END STRIP_FOR_RELEASE -->
+
+<!-- END MUNGE: UNVERSIONED_WARNING -->
+Bare Metal CoreOS with Kubernetes (OFFLINE)
+------------------------------------------
 Deploy a CoreOS running Kubernetes environment. This particular guild is made to help those in an OFFLINE system, wither for testing a POC before the real deal, or you are restricted to be totally offline for your applications.
 
+**Table of Contents**
+
+- [Prerequisites](#prerequisites)
+- [High Level Design](#high-level-design)
+- [This Guides variables](#this-guides-variables)
+- [Setup PXELINUX CentOS](#setup-pxelinux-centos)
+- [Adding CoreOS to PXE](#adding-coreos-to-pxe)
+- [DHCP configuration](#dhcp-configuration)
+- [Kubernetes](#kubernetes)
+- [Cloud Configs](#cloud-configs)
+    - [master.yml](#masteryml)
+    - [node.yml](#nodeyml)
+- [New pxelinux.cfg file](#new-pxelinuxcfg-file)
+- [Specify the pxelinux targets](#specify-the-pxelinux-targets)
+- [Creating test pod](#creating-test-pod)
+- [Helping commands for debugging](#helping-commands-for-debugging)
+
+
+## Prerequisites
+1. Installed *CentOS 6* for PXE server
+2. At least two bare metal nodes to work with
 
 ## High Level Design
 1. Manage the tftp directory 
@@ -10,11 +64,7 @@ Deploy a CoreOS running Kubernetes environment. This particular guild is made to
 3. Update the DHCP config to reflect the host needing deployment
 4. Setup nodes to deploy CoreOS creating a etcd cluster. 
 5. Have no access to the public [etcd discovery tool](https://discovery.etcd.io/). 
-6. Installing the CoreOS slaves to become Kubernetes minions.
-
-## Pre-requisites
-1. Installed *CentOS 6* for PXE server
-2. At least two bare metal nodes to work with
+6. Installing the CoreOS slaves to become Kubernetes nodes.
 
 ## This Guides variables
 | Node Description              | MAC               | IP          |
@@ -159,7 +209,7 @@ This section covers configuring the DHCP server to hand out our new images. In t
 
 We will be specifying the node configuration later in the guide.
 
-# Kubernetes
+## Kubernetes
 To deploy our configuration we need to create an ```etcd``` master. To do so we want to pxe CoreOS with a specific cloud-config.yml. There are two options we have here. 
 1. Is to template the cloud config file and programmatically create new static configs for different cluster setups.
 2. Have a service discovery protocol running in our stack to do auto discovery.
@@ -195,7 +245,7 @@ Now for the good stuff!
 ## Cloud Configs
 The following config files are tailored for the OFFLINE version of a Kubernetes deployment.
 
-These are based on the work found here: [master.yml](http://docs.k8s.io/getting-started-guides/coreos/cloud-configs/master.yaml), [node.yml](http://docs.k8s.io/getting-started-guides/coreos/cloud-configs/node.yaml)
+These are based on the work found here: [master.yml](cloud-configs/master.yaml), [node.yml](cloud-configs/node.yaml)
 
 To make the setup work, you need to replace a few placeholders:
 
@@ -602,9 +652,9 @@ Reboot these servers to get the images PXEd and ready for running containers!
 ## Creating test pod
 Now that the CoreOS with Kubernetes installed is up and running lets spin up some Kubernetes pods to demonstrate the system.
 
-See [a simple nginx example](../../../examples/simple-nginx.md) to try out your new cluster.
+See [a simple nginx example](../../../docs/user-guide/simple-nginx.md) to try out your new cluster.
 
-For more complete applications, please look in the [examples directory](../../../examples).
+For more complete applications, please look in the [examples directory](../../../examples/).
 
 ## Helping commands for debugging
 
@@ -616,14 +666,14 @@ List fleet machines
 
     fleetctl list-machines
 
-Check system status of services on master node:
+Check system status of services on master:
 
     systemctl status kube-apiserver
     systemctl status kube-controller-manager
     systemctl status kube-scheduler
     systemctl status kube-register
 
-Check system status of services on a minion node:
+Check system status of services on a node:
 
     systemctl status kube-kubelet
     systemctl status docker.service
@@ -631,7 +681,7 @@ Check system status of services on a minion node:
 List Kubernetes
 
     kubectl get pods
-    kubectl get minions
+    kubectl get nodes
 
 
 Kill all pods:
@@ -639,4 +689,6 @@ Kill all pods:
     for i in `kubectl get pods | awk '{print $1}'`; do kubectl stop pod $i; done
 
 
+<!-- BEGIN MUNGE: GENERATED_ANALYTICS -->
 [![Analytics](https://kubernetes-site.appspot.com/UA-36037335-10/GitHub/docs/getting-started-guides/coreos/bare_metal_offline.md?pixel)]()
+<!-- END MUNGE: GENERATED_ANALYTICS -->

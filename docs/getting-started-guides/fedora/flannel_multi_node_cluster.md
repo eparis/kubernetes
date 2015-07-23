@@ -1,8 +1,56 @@
-#**Kubernetes multiple nodes cluster with flannel on Fedora**
+<!-- BEGIN MUNGE: UNVERSIONED_WARNING -->
 
-This document describes how to deploy kubernetes on multiple hosts to set up a multi-node cluster and networking with flannel. Follow fedora [getting started guide](fedora_manual_config.md) to setup 1 master (fed-master) and 2 or more nodes (minions). Make sure that all nodes (minions) have different names (fed-node1, fed-node2 and so on) and labels (fed-node1-label, fed-node2-label, and so on) to avoid any conflict. Also make sure that the kubernetes master host is running etcd, kube-controller-manager, kube-scheduler, and kube-apiserver services, and the nodes (minions) are running docker, kube-proxy and kubelet services. Now install flannel on kubernetes nodes (minions). flannel on each node configures an overlay network that docker uses. flannel runs on each node to setup a unique class-C container network.
+<!-- BEGIN STRIP_FOR_RELEASE -->
 
-##**Perform following commands on the kubernetes master**
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+<img src="http://kubernetes.io/img/warning.png" alt="WARNING"
+     width="25" height="25">
+
+<h2>PLEASE NOTE: This document applies to the HEAD of the source tree</h2>
+
+If you are using a released version of Kubernetes, you should
+refer to the docs that go with that version.
+
+<strong>
+The latest 1.0.x release of this document can be found
+[here](http://releases.k8s.io/release-1.0/docs/getting-started-guides/fedora/flannel_multi_node_cluster.md).
+
+Documentation for other releases can be found at
+[releases.k8s.io](http://releases.k8s.io).
+</strong>
+--
+
+<!-- END STRIP_FOR_RELEASE -->
+
+<!-- END MUNGE: UNVERSIONED_WARNING -->
+Kubernetes multiple nodes cluster with flannel on Fedora
+--------------------------------------------------------
+
+**Table of Contents**
+
+- [Introduction](#introduction)
+- [Prerequisites](#prerequisites)
+- [Master Setup](#master-setup)
+- [Node Setup](#node-setup)
+- [**Test the cluster and flannel configuration**](#test-the-cluster-and-flannel-configuration)
+
+## Introduction
+
+This document describes how to deploy kubernetes on multiple hosts to set up a multi-node cluster and networking with flannel. Follow fedora [getting started guide](fedora_manual_config.md) to setup 1 master (fed-master) and 2 or more nodes. Make sure that all nodes have different names (fed-node1, fed-node2 and so on) and labels (fed-node1-label, fed-node2-label, and so on) to avoid any conflict. Also make sure that the kubernetes master host is running etcd, kube-controller-manager, kube-scheduler, and kube-apiserver services, and the nodes are running docker, kube-proxy and kubelet services. Now install flannel on kubernetes nodes. flannel on each node configures an overlay network that docker uses. flannel runs on each node to setup a unique class-C container network.
+
+## Prerequisites
+1. You need 2 or more machines with Fedora installed.
+
+## Master Setup
+
+**Perform following commands on the kubernetes master**
 
 * Configure flannel by creating a `flannel-config.json` in your current directory on fed-master. flannel provides udp and vxlan among other overlay networking backend options. In this guide, we choose kernel based vxlan backend. The contents of the json are:
 
@@ -16,6 +64,7 @@ This document describes how to deploy kubernetes on multiple hosts to set up a m
      }
 }
 ```
+
 **NOTE:** Choose an IP range that is *NOT* part of the public IP address range.
 
 * Add the configuration to the etcd server on fed-master.
@@ -30,7 +79,9 @@ This document describes how to deploy kubernetes on multiple hosts to set up a m
 # etcdctl get /coreos.com/network/config
 ```
 
-##**Perform following commands on all kubernetes nodes**
+## Node Setup
+
+**Perform following commands on all kubernetes nodes**
 
 * Edit the flannel configuration file /etc/sysconfig/flanneld as follows:
 
@@ -159,4 +210,6 @@ PING 18.16.90.4 (18.16.90.4) 56(84) bytes of data.
 * Now kubernetes multi-node cluster is set up with overlay networking set up by flannel.
 
 
+<!-- BEGIN MUNGE: GENERATED_ANALYTICS -->
 [![Analytics](https://kubernetes-site.appspot.com/UA-36037335-10/GitHub/docs/getting-started-guides/fedora/flannel_multi_node_cluster.md?pixel)]()
+<!-- END MUNGE: GENERATED_ANALYTICS -->

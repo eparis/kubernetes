@@ -24,6 +24,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -33,6 +34,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elb"
 
@@ -52,6 +54,7 @@ const TagNameKubernetesCluster = "KubernetesCluster"
 type AWSServices interface {
 	Compute(region string) (EC2, error)
 	LoadBalancing(region string) (ELB, error)
+	Autoscaling(region string) (ASG, error)
 	Metadata() AWSMetadata
 }
 
@@ -103,6 +106,12 @@ type ELB interface {
 	DeregisterInstancesFromLoadBalancer(*elb.DeregisterInstancesFromLoadBalancerInput) (*elb.DeregisterInstancesFromLoadBalancerOutput, error)
 }
 
+// This is a simple pass-through of the Autoscaling client interface, which allows for testing
+type ASG interface {
+	UpdateAutoScalingGroup(*autoscaling.UpdateAutoScalingGroupInput) (*autoscaling.UpdateAutoScalingGroupOutput, error)
+	DescribeAutoScalingGroups(*autoscaling.DescribeAutoScalingGroupsInput) (*autoscaling.DescribeAutoScalingGroupsOutput, error)
+}
+
 // Abstraction over the AWS metadata service
 type AWSMetadata interface {
 	// Query the EC2 metadata service (used to discover instance-id etc)
@@ -114,6 +123,7 @@ type VolumeOptions struct {
 }
 
 // Volumes is an interface for managing cloud-provisioned volumes
+// TODO: Allow other clouds to implement this
 type Volumes interface {
 	// Attach the disk to the specified instance
 	// instanceName can be empty to mean "the instance on which we are running"
@@ -128,10 +138,26 @@ type Volumes interface {
 	DeleteVolume(volumeName string) error
 }
 
+// InstanceGroups is an interface for managing cloud-managed instance groups / autoscaling instance groups
+// TODO: Allow other clouds to implement this
+type InstanceGroups interface {
+	// Set the size to the fixed size
+	ResizeInstanceGroup(instanceGroupName string, size int) error
+	// Queries the cloud provider for information about the specified instance group
+	DescribeInstanceGroup(instanceGroupName string) (InstanceGroupInfo, error)
+}
+
+// InstanceGroupInfo is returned by InstanceGroups.Describe, and exposes information about the group.
+type InstanceGroupInfo interface {
+	// The number of instances currently running under control of this group
+	CurrentSize() (int, error)
+}
+
 // AWSCloud is an implementation of Interface, TCPLoadBalancer and Instances for Amazon Web Services.
 type AWSCloud struct {
 	awsServices      AWSServices
 	ec2              EC2
+	asg              ASG
 	cfg              *AWSCloudConfig
 	availabilityZone string
 	region           string
@@ -181,6 +207,14 @@ func (p *awsSDKProvider) LoadBalancing(regionName string) (ELB, error) {
 		Credentials: p.creds,
 	})
 	return elbClient, nil
+}
+
+func (p *awsSDKProvider) Autoscaling(regionName string) (ASG, error) {
+	client := autoscaling.New(&aws.Config{
+		Region:      regionName,
+		Credentials: p.creds,
+	})
+	return client, nil
 }
 
 func (p *awsSDKProvider) Metadata() AWSMetadata {
@@ -245,7 +279,7 @@ func (a *AWSCloud) CurrentNodeName(hostname string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return selfInstance.awsID, nil
+	return selfInstance.nodeName, nil
 }
 
 // Implementation of EC2.Instances
@@ -512,10 +546,19 @@ func newAWSCloud(config io.Reader, awsServices AWSServices) (*AWSCloud, error) {
 	}
 
 	ec2, err := awsServices.Compute(regionName)
+	if err != nil {
+		return nil, fmt.Errorf("error creating AWS EC2 client: %v", err)
+	}
+
+	asg, err := awsServices.Autoscaling(regionName)
+	if err != nil {
+		return nil, fmt.Errorf("error creating AWS autoscaling client: %v", err)
+	}
 
 	awsCloud := &AWSCloud{
 		awsServices:      awsServices,
 		ec2:              ec2,
+		asg:              asg,
 		cfg:              cfg,
 		region:           regionName,
 		availabilityZone: zone,
@@ -582,7 +625,7 @@ func (aws *AWSCloud) Routes() (cloudprovider.Routes, bool) {
 
 // NodeAddresses is an implementation of Instances.NodeAddresses.
 func (aws *AWSCloud) NodeAddresses(name string) ([]api.NodeAddress, error) {
-	instance, err := aws.getInstanceById(name)
+	instance, err := aws.getInstanceByNodeName(name)
 	if err != nil {
 		return nil, err
 	}
@@ -618,7 +661,7 @@ func (aws *AWSCloud) NodeAddresses(name string) ([]api.NodeAddress, error) {
 // Note that if the instance does not exist or is no longer running, we must return ("", cloudprovider.InstanceNotFound)
 func (aws *AWSCloud) ExternalID(name string) (string, error) {
 	// We must verify that the instance still exists
-	instance, err := aws.getInstanceById(name)
+	instance, err := aws.findInstanceByNodeName(name)
 	if err != nil {
 		return "", err
 	}
@@ -631,7 +674,7 @@ func (aws *AWSCloud) ExternalID(name string) (string, error) {
 // InstanceID returns the cloud provider ID of the specified instance.
 func (aws *AWSCloud) InstanceID(name string) (string, error) {
 	// TODO: Do we need to verify it exists, or can we just construct it knowing our AZ (or via caching?)
-	inst, err := aws.getInstanceById(name)
+	inst, err := aws.getInstanceByNodeName(name)
 	if err != nil {
 		return "", err
 	}
@@ -699,9 +742,16 @@ func (s *AWSCloud) getInstancesByRegex(regex string) ([]string, error) {
 			continue
 		}
 
+		privateDNSName := orEmpty(instance.PrivateDNSName)
+		if privateDNSName == "" {
+			glog.V(2).Infof("skipping EC2 instance (no PrivateDNSName): %s",
+				orEmpty(instance.InstanceID))
+			continue
+		}
+
 		for _, tag := range instance.Tags {
 			if orEmpty(tag.Key) == "Name" && re.MatchString(orEmpty(tag.Value)) {
-				matchingInstances = append(matchingInstances, orEmpty(instance.InstanceID))
+				matchingInstances = append(matchingInstances, privateDNSName)
 				break
 			}
 		}
@@ -718,7 +768,7 @@ func (aws *AWSCloud) List(filter string) ([]string, error) {
 
 // GetNodeResources implements Instances.GetNodeResources
 func (aws *AWSCloud) GetNodeResources(name string) (*api.NodeResources, error) {
-	instance, err := aws.getInstanceById(name)
+	instance, err := aws.getInstanceByNodeName(name)
 	if err != nil {
 		return nil, err
 	}
@@ -915,7 +965,7 @@ func (self *awsInstanceType) getEBSMountDevices() []string {
 	// See: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/block-device-mapping-concepts.html
 	devices := []string{}
 	for c := 'f'; c <= 'p'; c++ {
-		devices = append(devices, fmt.Sprintf("/dev/sd%c", c))
+		devices = append(devices, fmt.Sprintf("%c", c))
 	}
 	return devices
 }
@@ -926,6 +976,9 @@ type awsInstance struct {
 	// id in AWS
 	awsID string
 
+	// node name in k8s
+	nodeName string
+
 	mutex sync.Mutex
 
 	// We must cache because otherwise there is a race condition,
@@ -933,8 +986,8 @@ type awsInstance struct {
 	deviceMappings map[string]string
 }
 
-func newAWSInstance(ec2 EC2, awsID string) *awsInstance {
-	self := &awsInstance{ec2: ec2, awsID: awsID}
+func newAWSInstance(ec2 EC2, awsID, nodeName string) *awsInstance {
+	self := &awsInstance{ec2: ec2, awsID: awsID, nodeName: nodeName}
 
 	// We lazy-init deviceMappings
 	self.deviceMappings = nil
@@ -969,9 +1022,9 @@ func (self *awsInstance) getInfo() (*ec2.Instance, error) {
 	return instances[0], nil
 }
 
-// Assigns an unused mount device for the specified volume.
-// If the volume is already assigned, this will return the existing mount device and true
-func (self *awsInstance) assignMountDevice(volumeID string) (mountDevice string, alreadyAttached bool, err error) {
+// Assigns an unused mountpoint (device) for the specified volume.
+// If the volume is already assigned, this will return the existing mountpoint and true
+func (self *awsInstance) assignMountpoint(volumeID string) (mountpoint string, alreadyAttached bool, err error) {
 	instanceType := self.getInstanceType()
 	if instanceType == nil {
 		return "", false, fmt.Errorf("could not get instance type for instance: %s", self.awsID)
@@ -991,16 +1044,23 @@ func (self *awsInstance) assignMountDevice(volumeID string) (mountDevice string,
 		}
 		deviceMappings := map[string]string{}
 		for _, blockDevice := range info.BlockDeviceMappings {
-			deviceMappings[orEmpty(blockDevice.DeviceName)] = orEmpty(blockDevice.EBS.VolumeID)
+			mountpoint := orEmpty(blockDevice.DeviceName)
+			if strings.HasPrefix(mountpoint, "/dev/sd") {
+				mountpoint = mountpoint[7:]
+			}
+			if strings.HasPrefix(mountpoint, "/dev/xvd") {
+				mountpoint = mountpoint[8:]
+			}
+			deviceMappings[mountpoint] = orEmpty(blockDevice.EBS.VolumeID)
 		}
 		self.deviceMappings = deviceMappings
 	}
 
 	// Check to see if this volume is already assigned a device on this machine
-	for deviceName, mappingVolumeID := range self.deviceMappings {
+	for mountpoint, mappingVolumeID := range self.deviceMappings {
 		if volumeID == mappingVolumeID {
-			glog.Warningf("Got assignment call for already-assigned volume: %s@%s", deviceName, mappingVolumeID)
-			return deviceName, true, nil
+			glog.Warningf("Got assignment call for already-assigned volume: %s@%s", mountpoint, mappingVolumeID)
+			return mountpoint, true, nil
 		}
 	}
 
@@ -1054,7 +1114,10 @@ type awsDisk struct {
 	az string
 }
 
-func newAWSDisk(ec2 EC2, name string) (*awsDisk, error) {
+func newAWSDisk(aws *AWSCloud, name string) (*awsDisk, error) {
+	if !strings.HasPrefix(name, "aws://") {
+		name = "aws://" + aws.availabilityZone + "/" + name
+	}
 	// name looks like aws://availability-zone/id
 	url, err := url.Parse(name)
 	if err != nil {
@@ -1081,7 +1144,7 @@ func newAWSDisk(ec2 EC2, name string) (*awsDisk, error) {
 	if az == "" {
 		return nil, fmt.Errorf("Invalid format for AWS volume (%s)", name)
 	}
-	disk := &awsDisk{ec2: ec2, name: name, awsID: awsID, az: az}
+	disk := &awsDisk{ec2: aws.ec2, name: name, awsID: awsID, az: az}
 	return disk, nil
 }
 
@@ -1174,29 +1237,34 @@ func (s *AWSCloud) getSelfAWSInstance() (*awsInstance, error) {
 		if err != nil {
 			return nil, fmt.Errorf("error fetching instance-id from ec2 metadata service: %v", err)
 		}
-		i = newAWSInstance(s.ec2, string(instanceIdBytes))
+		privateDnsNameBytes, err := metadata.GetMetaData("local-hostname")
+		if err != nil {
+			return nil, fmt.Errorf("error fetching local-hostname from ec2 metadata service: %v", err)
+		}
+
+		i = newAWSInstance(s.ec2, string(instanceIdBytes), string(privateDnsNameBytes))
 		s.selfAWSInstance = i
 	}
 
 	return i, nil
 }
 
-// Gets the awsInstance named instanceName, or the 'self' instance if instanceName == ""
-func (aws *AWSCloud) getAwsInstance(instanceName string) (*awsInstance, error) {
+// Gets the awsInstance with node-name nodeName, or the 'self' instance if nodeName == ""
+func (aws *AWSCloud) getAwsInstance(nodeName string) (*awsInstance, error) {
 	var awsInstance *awsInstance
 	var err error
-	if instanceName == "" {
+	if nodeName == "" {
 		awsInstance, err = aws.getSelfAWSInstance()
 		if err != nil {
 			return nil, fmt.Errorf("error getting self-instance: %v", err)
 		}
 	} else {
-		instance, err := aws.getInstanceById(instanceName)
+		instance, err := aws.getInstanceByNodeName(nodeName)
 		if err != nil {
-			return nil, fmt.Errorf("error finding instance: %v", err)
+			return nil, fmt.Errorf("error finding instance %s: %v", nodeName, err)
 		}
 
-		awsInstance = newAWSInstance(aws.ec2, orEmpty(instance.InstanceID))
+		awsInstance = newAWSInstance(aws.ec2, orEmpty(instance.InstanceID), orEmpty(instance.PrivateDNSName))
 	}
 
 	return awsInstance, nil
@@ -1204,7 +1272,7 @@ func (aws *AWSCloud) getAwsInstance(instanceName string) (*awsInstance, error) {
 
 // Implements Volumes.AttachDisk
 func (aws *AWSCloud) AttachDisk(instanceName string, diskName string, readOnly bool) (string, error) {
-	disk, err := newAWSDisk(aws.ec2, diskName)
+	disk, err := newAWSDisk(aws, diskName)
 	if err != nil {
 		return "", err
 	}
@@ -1220,20 +1288,29 @@ func (aws *AWSCloud) AttachDisk(instanceName string, diskName string, readOnly b
 		return "", errors.New("AWS volumes cannot be mounted read-only")
 	}
 
-	mountDevice, alreadyAttached, err := awsInstance.assignMountDevice(disk.awsID)
+	mountpoint, alreadyAttached, err := awsInstance.assignMountpoint(disk.awsID)
 	if err != nil {
 		return "", err
+	}
+
+	// Inside the instance, the mountpoint always looks like /dev/xvdX (?)
+	hostDevice := "/dev/xvd" + mountpoint
+	// In the EC2 API, it is sometimes is /dev/sdX and sometimes /dev/xvdX
+	// We are running on the node here, so we check if /dev/xvda exists to determine this
+	ec2Device := "/dev/xvd" + mountpoint
+	if _, err := os.Stat("/dev/xvda"); os.IsNotExist(err) {
+		ec2Device = "/dev/sd" + mountpoint
 	}
 
 	attached := false
 	defer func() {
 		if !attached {
-			awsInstance.releaseMountDevice(disk.awsID, mountDevice)
+			awsInstance.releaseMountDevice(disk.awsID, ec2Device)
 		}
 	}()
 
 	if !alreadyAttached {
-		attachResponse, err := aws.ec2.AttachVolume(disk.awsID, awsInstance.awsID, mountDevice)
+		attachResponse, err := aws.ec2.AttachVolume(disk.awsID, awsInstance.awsID, ec2Device)
 		if err != nil {
 			// TODO: Check if the volume was concurrently attached?
 			return "", fmt.Errorf("Error attaching EBS volume: %v", err)
@@ -1249,17 +1326,12 @@ func (aws *AWSCloud) AttachDisk(instanceName string, diskName string, readOnly b
 
 	attached = true
 
-	hostDevice := mountDevice
-	if strings.HasPrefix(hostDevice, "/dev/sd") {
-		// Inside the instance, the mountpoint /dev/sdf looks like /dev/xvdf
-		hostDevice = "/dev/xvd" + hostDevice[7:]
-	}
 	return hostDevice, nil
 }
 
 // Implements Volumes.DetachDisk
 func (aws *AWSCloud) DetachDisk(instanceName string, diskName string) error {
-	disk, err := newAWSDisk(aws.ec2, diskName)
+	disk, err := newAWSDisk(aws, diskName)
 	if err != nil {
 		return err
 	}
@@ -1313,7 +1385,7 @@ func (aws *AWSCloud) CreateVolume(volumeOptions *VolumeOptions) (string, error) 
 
 // Implements Volumes.DeleteVolume
 func (aws *AWSCloud) DeleteVolume(volumeName string) error {
-	awsDisk, err := newAWSDisk(aws.ec2, volumeName)
+	awsDisk, err := newAWSDisk(aws, volumeName)
 	if err != nil {
 		return err
 	}
@@ -1658,7 +1730,7 @@ func (s *AWSCloud) CreateTCPLoadBalancer(name, region string, publicIP net.IP, p
 		return nil, fmt.Errorf("publicIP cannot be specified for AWS ELB")
 	}
 
-	instances, err := s.getInstancesByIds(hosts)
+	instances, err := s.getInstancesByNodeNames(hosts)
 	if err != nil {
 		return nil, err
 	}
@@ -2070,7 +2142,7 @@ func (s *AWSCloud) EnsureTCPLoadBalancerDeleted(name, region string) error {
 
 // UpdateTCPLoadBalancer implements TCPLoadBalancer.UpdateTCPLoadBalancer
 func (s *AWSCloud) UpdateTCPLoadBalancer(name, region string, hosts []string) error {
-	instances, err := s.getInstancesByIds(hosts)
+	instances, err := s.getInstancesByNodeNames(hosts)
 	if err != nil {
 		return err
 	}
@@ -2177,6 +2249,56 @@ func (a *AWSCloud) getInstanceById(instanceID string) (*ec2.Instance, error) {
 		return nil, fmt.Errorf("multiple instances found for instance: %s", instanceID)
 	}
 	return instances[0], nil
+}
+
+// TODO: Make efficient
+func (a *AWSCloud) getInstancesByNodeNames(nodeNames []string) ([]*ec2.Instance, error) {
+	instances := []*ec2.Instance{}
+	for _, nodeName := range nodeNames {
+		instance, err := a.getInstanceByNodeName(nodeName)
+		if err != nil {
+			return nil, err
+		}
+		if instance == nil {
+			return nil, fmt.Errorf("unable to find instance " + nodeName)
+		}
+		instances = append(instances, instance)
+	}
+	return instances, nil
+}
+
+// Returns the instance with the specified node name
+// Returns nil if it does not exist
+func (a *AWSCloud) findInstanceByNodeName(nodeName string) (*ec2.Instance, error) {
+	filters := []*ec2.Filter{
+		newEc2Filter("private-dns-name", nodeName),
+	}
+	filters = a.addFilters(filters)
+	request := &ec2.DescribeInstancesInput{
+		Filters: filters,
+	}
+
+	instances, err := a.ec2.DescribeInstances(request)
+	if err != nil {
+		return nil, err
+	}
+	if len(instances) == 0 {
+		return nil, nil
+	}
+	if len(instances) > 1 {
+		return nil, fmt.Errorf("multiple instances found for name: %s", nodeName)
+	}
+	return instances[0], nil
+}
+
+// Returns the instance with the specified node name
+// Like findInstanceByNodeName, but returns error if node not found
+func (a *AWSCloud) getInstanceByNodeName(nodeName string) (*ec2.Instance, error) {
+	instance, err := a.findInstanceByNodeName(nodeName)
+	if err == nil && instance == nil {
+		return nil, fmt.Errorf("no instances found for name: %s", nodeName)
+	}
+	return instance, err
 }
 
 // Add additional filters, to match on our tags
