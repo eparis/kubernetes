@@ -160,14 +160,16 @@ def get_flags(rootdir, files):
             if flag not in flags:
                 new_flags.add(flag)
     if len(new_excluded_flags) != 0:
-        print("Found a flag declared with an _ but which is not explicitly listed as a valid flag name in hack/verify-flags/excluded-flags.txt")
-        print("Are you certain this flag should not have been declared with an - instead?")
+        if not args.skip_exceptions:
+            print("Found a flag declared with an _ but which is not explicitly listed as a valid flag name in hack/verify-flags/excluded-flags.txt")
+            print("Are you certain this flag should not have been declared with an - instead?")
         l = list(new_excluded_flags)
         l.sort()
         print("%s" % "\n".join(l))
         sys.exit(1)
     if len(new_flags) != 0:
-        print("Found flags in golang files not in the list of known flags. Please add these to hack/verify-flags/known-flags.txt")
+        if not args.skip_exceptions:
+            print("Found flags in golang files not in the list of known flags. Please add these to hack/verify-flags/known-flags.txt")
         l = list(new_flags)
         l.sort()
         print("%s" % "\n".join(l))
