@@ -131,12 +131,12 @@ def get_flags(rootdir, files):
     excluded_flags = set(f.read().splitlines())
     f.close()
 
-    regexs = [ re.compile('Var[P]?\([^,]*, "([^"]*)"'),
-               re.compile('.String[P]?\("([^"]*)",[^,]+,[^)]+\)'),
-               re.compile('.Int[P]?\("([^"]*)",[^,]+,[^)]+\)'),
-               re.compile('.Bool[P]?\("([^"]*)",[^,]+,[^)]+\)'),
-               re.compile('.Duration[P]?\("([^"]*)",[^,]+,[^)]+\)'),
-               re.compile('.StringSlice[P]?\("([^"]*)",[^,]+,[^)]+\)') ]
+    regexs = [ re.compile('\.\w*Var[P]?\([^,]*, "([^"]*)"'),
+               re.compile('\.String[P]?\("([^"]*)",[^,]+,[^)]+\)'),
+               re.compile('\.Int[P]?\("([^"]*)",[^,]+,[^)]+\)'),
+               re.compile('\.Bool[P]?\("([^"]*)",[^,]+,[^)]+\)'),
+               re.compile('\.Duration[P]?\("([^"]*)",[^,]+,[^)]+\)'),
+               re.compile('\.StringSlice[P]?\("([^"]*)",[^,]+,[^)]+\)') ]
 
     new_flags = set()
     new_excluded_flags = set()

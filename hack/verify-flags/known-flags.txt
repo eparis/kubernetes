@@ -177,7 +177,6 @@ path-override
 pod-cidr
 pod-eviction-timeout
 pod-infra-container-image
-pod-running
 policy-config-file
 poll-interval
 portal-net
