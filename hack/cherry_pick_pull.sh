@@ -66,6 +66,8 @@ function join { local IFS="$1"; shift; echo "$*"; }
 declare -r PULLDASH=$(join - "${PULLS[@]/#/#}") # Generates something like "#12345-#56789"
 declare -r PULLSUBJ=$(join " " "${PULLS[@]/#/#}") # Generates something like "#12345 #56789"
 
+rel="$(basename "${BRANCH}")"
+
 echo "+++ Updating remotes..."
 git remote update
 
@@ -138,7 +140,6 @@ done
 gitamcleanup=false
 
 function make-a-pr() {
-  local rel="$(basename "${BRANCH}")"
   echo "+++ Creating a pull request on github"
 
   # This looks like an unnecessary use of a tmpfile, but it avoids
@@ -155,7 +156,7 @@ EOF
   hub pull-request -F"${prtext}" -h "${GITHUB_USER}:${NEWBRANCH}" -b "kubernetes:${rel}"
 }
 
-if git remote -v | grep ^origin | grep kubernetes/kubernetes.git; then
+if git remote -v | grep ^origin | grep -E '(https://github\.com/kubernetes/kubernetes)|(github\.com:kubernetes/kubernetes\.git)' > /dev/null; then
   echo "!!! You have 'origin' configured as your kubernetes/kubernetes.git"
   echo "This isn't normal. Leaving you with push instructions:"
   echo
@@ -165,8 +166,9 @@ if git remote -v | grep ^origin | grep kubernetes/kubernetes.git; then
   echo
   echo "where REMOTE is your personal fork (maybe 'upstream'? Consider swapping those.)."
   echo
-  make-a-pr
   cleanbranch=""
+  echo "+++ Then create a pull request against the kubernetes ${rel} branch."
+  echo " This pull request should set the vX.Y milestone and the cherrypick-candidate label."
   exit 0
 fi
 
