@@ -153,7 +153,7 @@ Automated cherry pick of ${PULLSUBJ}
 Cherry pick of ${PULLSUBJ} on ${rel}.
 EOF
 
-  hub pull-request -F"${prtext}" -h "${GITHUB_USER}:${NEWBRANCH}" -b "kubernetes:${rel}"
+  hub pull-request -F "${prtext}" -h "${GITHUB_USER}:${NEWBRANCH}" -b "kubernetes:${rel}"
 }
 
 if git remote -v | grep ^origin | grep -E '(https://github\.com/kubernetes/kubernetes)|(github\.com:kubernetes/kubernetes\.git)' > /dev/null; then
