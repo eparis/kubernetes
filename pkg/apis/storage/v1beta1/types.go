@@ -32,7 +32,7 @@ import (
 type StorageClass struct {
 	unversioned.TypeMeta `json:",inline"`
 	// Standard object's metadata.
-	// More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#metadata
+	// More info: http://releases.k8s.io/release-1.4/docs/devel/api-conventions.md#metadata
 	v1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
 	// Provisioner indicates the type of the provisioner.
@@ -47,7 +47,7 @@ type StorageClass struct {
 type StorageClassList struct {
 	unversioned.TypeMeta `json:",inline"`
 	// Standard list metadata
-	// More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#metadata
+	// More info: http://releases.k8s.io/release-1.4/docs/devel/api-conventions.md#metadata
 	unversioned.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
 	// Items is the list of StorageClasses

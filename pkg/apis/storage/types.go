@@ -52,7 +52,7 @@ type StorageClass struct {
 type StorageClassList struct {
 	unversioned.TypeMeta `json:",inline"`
 	// Standard list metadata
-	// More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#metadata
+	// More info: http://releases.k8s.io/release-1.4/docs/devel/api-conventions.md#metadata
 	unversioned.ListMeta `json:"metadata,omitempty"`
 
 	// Items is the list of StorageClasses

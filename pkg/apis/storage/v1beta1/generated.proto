@@ -37,7 +37,7 @@ option go_package = "v1beta1";
 // according to etcd is in ObjectMeta.Name.
 message StorageClass {
   // Standard object's metadata.
-  // More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#metadata
+  // More info: http://releases.k8s.io/release-1.4/docs/devel/api-conventions.md#metadata
   optional k8s.io.kubernetes.pkg.api.v1.ObjectMeta metadata = 1;
 
   // Provisioner indicates the type of the provisioner.
@@ -51,7 +51,7 @@ message StorageClass {
 // StorageClassList is a collection of storage classes.
 message StorageClassList {
   // Standard list metadata
-  // More info: http://releases.k8s.io/HEAD/docs/devel/api-conventions.md#metadata
+  // More info: http://releases.k8s.io/release-1.4/docs/devel/api-conventions.md#metadata
   optional k8s.io.kubernetes.pkg.api.unversioned.ListMeta metadata = 1;
 
   // Items is the list of StorageClasses
